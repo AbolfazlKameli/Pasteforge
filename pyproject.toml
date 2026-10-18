@@ -1,0 +1,19 @@
+[project]
+name = "pasteforge"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Abolfazl Kameli", email = "abolfazlkameli0@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.144.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+pasteforge = "pasteforge:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
