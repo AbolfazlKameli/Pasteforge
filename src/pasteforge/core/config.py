@@ -12,6 +12,10 @@ class BaseConfig(BaseSettings):
 
 
 class GlobalConfig(BaseConfig):
+    DATABASE_POOL_SIZE: int
+    DATABASE_MAX_OVERFLOW: int
+    DATABASE_URL: str
+
     DEBUG: bool = False
 
 
