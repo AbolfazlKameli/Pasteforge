@@ -1,7 +1,7 @@
 from celery import Celery
 
-from pasteforge.core import loggers  # noqa
-from pasteforge.core.config import configs
+from src.pasteforge.core import loggers  # noqa
+from src.pasteforge.core.config import configs
 
 CELERY_CONFIG = {
     'broker_url': configs.CELERY_BROKER_URL,

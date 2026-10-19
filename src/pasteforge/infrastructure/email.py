@@ -2,8 +2,8 @@ import ssl
 from email.message import EmailMessage
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 
-from pasteforge.core.config import configs
-from pasteforge.exceptions import EmailDeliveryError
+from src.pasteforge.core.config import configs
+from src.pasteforge.exceptions import EmailDeliveryError
 
 
 class EmailHandler:
