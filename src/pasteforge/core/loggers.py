@@ -3,7 +3,7 @@ import logging.config
 
 from celery.signals import setup_logging as celery_setup_logging
 
-from pasteforge.core.config import configs
+from src.pasteforge.core.config import configs
 
 
 def build_logging_config(component: str) -> dict:

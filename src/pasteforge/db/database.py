@@ -4,7 +4,7 @@ from sqlalchemy import DateTime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-from pasteforge.core.config import configs
+from src.pasteforge.core.config import configs
 
 engine = create_async_engine(
     url=configs.DATABASE_URL,

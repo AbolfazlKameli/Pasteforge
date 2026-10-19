@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from pasteforge.db.database import Base
+from src.pasteforge.db.database import Base
 
 
 class Otp(Base):
