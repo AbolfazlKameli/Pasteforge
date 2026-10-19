@@ -1,5 +1,9 @@
 from fastapi import FastAPI
 
+from pasteforge.core.loggers import setup_api_logging
+
+setup_api_logging()  # Keep above others
+
 app = FastAPI()
 
 
