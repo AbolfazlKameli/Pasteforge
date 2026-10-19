@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4),
         sa.Column('email', sa.String(length=255), unique=True, nullable=False),
         sa.Column('password', sa.String(), nullable=False),
+        sa.Column('is_active', sa.Boolean(), default=True, nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
                   onupdate=lambda: datetime.now(UTC))
