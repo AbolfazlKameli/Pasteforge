@@ -15,6 +15,11 @@ class GlobalConfig(BaseConfig):
     DATABASE_POOL_SIZE: int
     DATABASE_MAX_OVERFLOW: int
     DATABASE_URL: str
+    EMAIL_HOSTNAME: str
+    EMAIL_PORT: int
+    EMAIL_USE_TLS: bool
+    EMAIL_HOST_USERNAME: str
+    EMAIL_HOST_PASSWORD: str
 
     DEBUG: bool = False
 
