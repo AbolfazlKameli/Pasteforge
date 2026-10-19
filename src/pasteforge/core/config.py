@@ -18,6 +18,8 @@ class BaseConfig(BaseSettings):
 class GlobalConfig(BaseConfig):
     TIMEZONE: str
 
+    UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
+
     LOG_LEVEL: LogLevel = 'DEBUG'
     SQLALCHEMY_LOG_LEVEL: LogLevel = 'DEBUG'
     LOG_DIR: Path = Path('logs')
