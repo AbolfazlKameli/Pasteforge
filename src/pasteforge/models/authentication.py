@@ -16,7 +16,7 @@ class Otp(Base):
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
 
     def __repr__(self):
-        return f"{self.id}, {self.email}, {self.hashed_code}, {self.attempts}, {self.expires_at}"
+        return f"Otp({self.id}, {self.email}, {self.hashed_code}, {self.attempts}, {self.expires_at})"
 
     def __str__(self):
         return f"{self.email} - {self.attempts} - {self.expires_at}"
@@ -28,3 +28,9 @@ class OtpBlacklist(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(length=50), unique=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=True)
+
+    def __repr__(self):
+        return f"OtpBlacklist({self.id}, {self.email}, {self.expires_at})"
+
+    def __str__(self):
+        return f"{self.id} - {self.email} - {self.expires_at}"
