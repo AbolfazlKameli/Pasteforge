@@ -20,3 +20,11 @@ class Otp(Base):
 
     def __str__(self):
         return f"{self.email} - {self.attempts} - {self.expires_at}"
+
+
+class OtpBlacklist(Base):
+    __tablename__ = "otp_blacklist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(length=50), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(nullable=True)
