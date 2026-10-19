@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LogLevel = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 
 class BaseConfig(BaseSettings):
@@ -13,6 +17,12 @@ class BaseConfig(BaseSettings):
 
 class GlobalConfig(BaseConfig):
     TIMEZONE: str
+
+    LOG_LEVEL: LogLevel = 'DEBUG'
+    SQLALCHEMY_LOG_LEVEL: LogLevel = 'DEBUG'
+    LOG_DIR: Path = Path('logs')
+    LOG_MAX_BYTES: int = 10_000_000
+    LOG_BACKUP_COUNT: int = 5
 
     DATABASE_POOL_SIZE: int
     DATABASE_MAX_OVERFLOW: int

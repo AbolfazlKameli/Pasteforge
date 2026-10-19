@@ -1,5 +1,6 @@
 from celery import Celery
 
+from pasteforge.core import loggers  # noqa
 from pasteforge.core.config import configs
 
 CELERY_CONFIG = {
