@@ -1,3 +1,4 @@
+from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -19,6 +20,9 @@ class GlobalConfig(BaseConfig):
     TIMEZONE: str
 
     UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
+
+    OTP_EXPIRATION_TIME: timedelta = timedelta(minutes=2)
+    OTP_MAX_ATTEMPTS: int = 5
 
     LOG_LEVEL: LogLevel = 'DEBUG'
     SQLALCHEMY_LOG_LEVEL: LogLevel = 'DEBUG'
