@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 
-from src.pasteforge.core.loggers import setup_api_logging
-
-setup_api_logging()  # Keep above others
+from src.pasteforge.core.loggers import setup_api_logging  # noqa
+from src.pasteforge.routers import auth_router
 
 app = FastAPI(
     title='PasteForge',
@@ -18,6 +17,8 @@ app = FastAPI(
         'url': 'https://github.com/AbolfazlKameli/Pasteforge/blob/main/LICENSE'
     },
 )
+
+app.include_router(auth_router)
 
 
 @app.get('/')
