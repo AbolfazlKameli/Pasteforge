@@ -26,7 +26,7 @@ class OtpBlacklist(Base):
     __tablename__ = "otp_blacklist"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(length=50), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(length=50), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=True)
 
     def __repr__(self):
