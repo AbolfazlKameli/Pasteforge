@@ -7,29 +7,30 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pasteforge.tasks import send_otp_code_email
 from src.pasteforge.core.config import configs
 from src.pasteforge.models import Otp, OtpBlacklist
 from src.pasteforge.repositories.auth import (
     create_otp,
     get_active_blacklist_by_email,
     get_otp,
-    get_user_blacklist_count
+    get_user_blacklist_count,
+    reset_otp_attempts
 )
+from src.pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
 
 
-async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str, int] | str | None:
+async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | None, int]:
     now = datetime.now(UTC)
 
     blacklist = await get_active_blacklist_by_email(db, email, now)
 
     if blacklist is None:
-        return None
+        return None, 0
 
     if blacklist and blacklist.expires_at is None:
-        return "You have been permanently blocked. if you believe this is a mistake, please contact support."
+        return "You have been permanently blocked. if you believe this is a mistake, please contact support.", 0
 
     throttle_wait = (blacklist.expires_at - now).total_seconds()
     expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -37,7 +38,7 @@ async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str, i
 
 
 async def refresh_otp_code(db: AsyncSession, otp: Otp, hashed_otp: str, expires_at: datetime):
-    stmt = sa.update(Otp).where(Otp.id == otp.id, Otp.attempts <= configs.OTP_MAX_ATTEMPTS).values(
+    stmt = sa.update(Otp).where(Otp.id == otp.id, Otp.attempts <= configs.OTP_SETTINGS.MAX_ATTEMPTS).values(
         hashed_code=hashed_otp,
         expires_at=expires_at,
         attempts=Otp.attempts + 1
@@ -49,10 +50,10 @@ async def handle_otp_blacklist(db: AsyncSession, email: str):
     now = datetime.now(UTC)
     blacklist_count = await get_user_blacklist_count(db, email)
     expires_at = None
-    blacklist_level = (blacklist_count + 1)
+    blacklist_level = str(blacklist_count + 1)
 
-    expiration_levels = configs.OTP_SETTINGS["BLACKLIST_EXPIRATION_TIME_LEVELS"]
-    expiration_times = configs.OTP_SETTINGS["BLACKLIST_EXPIRATION_TIME"]
+    expiration_levels = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME_LEVELS
+    expiration_times = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME
 
     if blacklist_level in expiration_levels:
         expires_at = now + expiration_times[blacklist_level]
@@ -64,23 +65,29 @@ async def handle_otp_blacklist(db: AsyncSession, email: str):
 
 async def generate_and_send_otp(db: AsyncSession, email: str):
     try:
-        async with db.begin():
-            otp = await get_otp(db, email, True)
+        otp = await get_otp(db, email, True)
 
-            expires_at = datetime.now(UTC) + configs.OTP_EXPIRATION_TIME
-            otp_code = f"{secrets.randbelow(1_000_000):06d}"
-            hashed_code = hasher.hash(otp_code)
+        expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
+        otp_code = f"{secrets.randbelow(1_000_000):06d}"
+        hashed_code = hasher.hash(otp_code)
+        blacklisted = False
 
-            if otp is None:
-                await create_otp(db, email, hashed_code, expires_at)
-            elif otp.attempts >= configs.OTP_MAX_ATTEMPTS:
-                await handle_otp_blacklist(db, email)
-                message = "Too many requests. Your email has been added to the blacklist."
-                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
-            else:
-                await refresh_otp_code(db, otp, hashed_code, expires_at)
+        if otp is None:
+            await create_otp(db, email, hashed_code, expires_at)
+        elif otp.attempts >= configs.OTP_SETTINGS.MAX_ATTEMPTS:
+            await handle_otp_blacklist(db, email)
+            await reset_otp_attempts(db, otp)
+            blacklisted = True
+        else:
+            await refresh_otp_code(db, otp, hashed_code, expires_at)
 
-            send_otp_code_email.delay(email, otp_code)
+        await db.commit()
+
+        if blacklisted:
+            message = "Too many requests. Your email has been added to the blacklist."
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
+
+        send_otp_code_email.delay(email, otp_code)
 
     except IntegrityError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.")
