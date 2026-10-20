@@ -34,7 +34,11 @@ async def get_otp(db: AsyncSession, email: str, for_update: bool = False) -> Otp
     return result.scalar_one_or_none()
 
 
-async def create_otp(db: AsyncSession, email: str, hashed_code: str, expires_at: datetime) -> Otp:
+async def create_otp(db: AsyncSession, email: str, hashed_code: str, expires_at: datetime):
     otp = Otp(email=email, hashed_code=hashed_code, expires_at=expires_at)
     db.add(otp)
     await db.flush()
+
+
+async def reset_otp_attempts(db: AsyncSession, otp: Otp):
+    return await db.execute(sa.update(Otp).where(Otp.id == otp.id).values(attempts=0))
