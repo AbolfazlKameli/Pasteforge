@@ -15,7 +15,7 @@ from src.pasteforge.tasks import send_otp_code_email
 hasher = PasswordHasher()
 
 
-async def check_blacklist_for_user(db: AsyncSession, email: str) -> str | None:
+async def check_blacklist_for_user(db: AsyncSession, email: str) -> (str, int) | None:
     now = datetime.now(UTC)
 
     blacklist = await get_active_blacklist_by_email(db, email, now)
@@ -26,8 +26,9 @@ async def check_blacklist_for_user(db: AsyncSession, email: str) -> str | None:
     if blacklist and blacklist.expires_at is None:
         return "You have been permanently blocked. if you believe this is a mistake, please contact support."
 
+    throttle_wait = (blacklist.expires_at - now).total_seconds()
     expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    return f"You have been blocked until {expiration_date_time}"
+    return f"You have been blocked until {expiration_date_time}", throttle_wait
 
 
 async def generate_otp(db: AsyncSession, email: str) -> (Otp, str, str, bool, datetime):
