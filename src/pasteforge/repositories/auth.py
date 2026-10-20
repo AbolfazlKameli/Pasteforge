@@ -3,7 +3,7 @@ from datetime import datetime
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.pasteforge.models import OtpBlacklist
+from src.pasteforge.models import OtpBlacklist, Otp
 
 
 async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_time: datetime) -> OtpBlacklist | None:
@@ -21,4 +21,20 @@ async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_ti
 
 
 async def get_user_blacklist_count(db: AsyncSession, email: str) -> int:
-    return await db.scalar(sa.select(sa.func.count()).select_from(OtpBlacklist).where(OtpBlacklist.email == email))
+    return await db.scalar(sa.select(sa.func.count()).select_from(OtpBlacklist).where(OtpBlacklist.email == email)) or 0
+
+
+async def get_otp(db: AsyncSession, email: str, for_update: bool = False) -> Otp | None:
+    stmt = sa.select(Otp).where(Otp.email == email)
+
+    if for_update:
+        stmt = stmt.with_for_update()
+
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def create_otp(db: AsyncSession, email: str, hashed_code: str, expires_at: datetime) -> Otp:
+    otp = Otp(email=email, hashed_code=hashed_code, expires_at=expires_at)
+    db.add(otp)
+    await db.flush()
