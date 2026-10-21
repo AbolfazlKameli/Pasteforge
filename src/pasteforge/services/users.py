@@ -1,6 +1,5 @@
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.pasteforge.models import User
 
 
@@ -18,8 +17,8 @@ async def register_user(db: AsyncSession, email: str, password: str | None = Non
         await db.refresh(user)
     except IntegrityError as e:
         await db.rollback()
-        raise ValueError('Duplicate entry or constraint violated') from e
+        raise ValueError("Duplicate entry or constraint violated") from e
     except SQLAlchemyError as e:
         await db.rollback()
-        raise RuntimeError('Database operation failed') from e
+        raise RuntimeError("Database operation failed") from e
     return user

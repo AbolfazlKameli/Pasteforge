@@ -1,17 +1,16 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
-
 from src.pasteforge.db.database import Base
 
 hasher = PasswordHasher()
 
 
 class Otp(Base):
-    __tablename__ = 'otp'
+    __tablename__ = "otp"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(length=255), nullable=False, unique=True)
@@ -20,10 +19,10 @@ class Otp(Base):
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
 
     def __repr__(self):
-        return f'Otp({self.id}, {self.email}, {self.hashed_code}, {self.attempts}, {self.expires_at})'
+        return f"Otp({self.id}, {self.email}, {self.hashed_code}, {self.attempts}, {self.expires_at})"
 
     def __str__(self):
-        return f'{self.email} - {self.attempts} - {self.expires_at}'
+        return f"{self.email} - {self.attempts} - {self.expires_at}"
 
     def set_code(self, otp_code: str) -> None:
         self.hashed_code = hasher.hash(otp_code)
@@ -42,27 +41,27 @@ class Otp(Base):
 
 
 class OtpBlacklist(Base):
-    __tablename__ = 'otp_blacklist'
+    __tablename__ = "otp_blacklist"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(length=50), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=True)
 
     def __repr__(self):
-        return f'OtpBlacklist({self.id}, {self.email}, {self.expires_at})'
+        return f"OtpBlacklist({self.id}, {self.email}, {self.expires_at})"
 
     def __str__(self):
-        return f'{self.id} - {self.email} - {self.expires_at}'
+        return f"{self.id} - {self.email} - {self.expires_at}"
 
 
 class RefreshTokenBlacklist(Base):
-    __tablename__ = 'refresh_token_blacklist'
+    __tablename__ = "refresh_token_blacklist"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     refresh: Mapped[str] = mapped_column(nullable=False)
 
     def __repr__(self):
-        return f'RefreshTokenBlacklist({self.id}, {self.refresh})'
+        return f"RefreshTokenBlacklist({self.id}, {self.refresh})"
 
     def __str__(self):
-        return f'{self.id} - {self.refresh}'
+        return f"{self.id} - {self.refresh}"
