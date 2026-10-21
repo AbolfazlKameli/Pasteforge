@@ -39,7 +39,8 @@ async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | 
     return f"You have been blocked until {expiration_date_time}", int(throttle_wait)
 
 
-async def refresh_otp_code(db: AsyncSession, otp: Otp, hashed_otp: str, expires_at: datetime):
+async def refresh_otp_code(db: AsyncSession, otp: Otp, otp_code: str, expires_at: datetime):
+    hashed_otp = hasher.hash(otp_code)
     stmt = sa.update(Otp).where(Otp.id == otp.id, Otp.attempts <= configs.OTP_SETTINGS.MAX_ATTEMPTS).values(
         hashed_code=hashed_otp,
         expires_at=expires_at,
@@ -71,17 +72,16 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
 
         expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
         otp_code = f"{secrets.randbelow(1_000_000):06d}"
-        hashed_code = hasher.hash(otp_code)
         blacklisted = False
 
         if otp is None:
-            await create_otp(db, email, hashed_code, expires_at)
+            await create_otp(db, email, otp_code, expires_at)
         elif otp.attempts >= configs.OTP_SETTINGS.MAX_ATTEMPTS:
             await handle_otp_blacklist(db, email)
             await reset_otp_attempts(db, otp)
             blacklisted = True
         else:
-            await refresh_otp_code(db, otp, hashed_code, expires_at)
+            await refresh_otp_code(db, otp, otp_code, expires_at)
 
         await db.commit()
 
