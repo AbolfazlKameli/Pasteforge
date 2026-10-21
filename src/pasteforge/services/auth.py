@@ -2,11 +2,11 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, UTC, timedelta
-from typing import Literal
+from typing import Literal, Annotated
 
 import sqlalchemy as sa
 from argon2 import PasswordHasher
-from fastapi import HTTPException, status, Request
+from fastapi import HTTPException, status, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.exc import IntegrityError
@@ -26,6 +26,33 @@ from src.pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
 logger = logging.getLogger(__name__)
+
+
+class JWTBearer(HTTPBearer):
+    def __init__(self, auto_error: bool = True):
+        super(JWTBearer, self).__init__(auto_error=auto_error)
+
+    async def __call__(self, request: Request):
+        credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
+        if credentials:
+            if not credentials.scheme == "Bearer":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme.")
+
+            try:
+                decode_access_token(credentials.credentials)
+            except JWTError as e:
+                raise e
+
+            return credentials.credentials
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+
+oauth_schema = JWTBearer(auto_error=False)
 
 
 async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | None, int]:
@@ -129,7 +156,7 @@ def create_jwt_token(
     return jwt.encode(payload, configs.SECRET_KEY, algorithm="HS256")
 
 
-def decode_access_token(token: str):
+def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
         user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
