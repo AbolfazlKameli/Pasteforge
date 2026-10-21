@@ -12,7 +12,7 @@ def build_logging_config(component: str) -> dict:
 
     configs.LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    component_logger = "pasteforge" if component == "api" else "pasteforge.infrastructure.worker"
+    component_logger = "src.pasteforge" if component == "api" else "src.pasteforge.infrastructure.worker"
 
     return {
         "version": 1,
