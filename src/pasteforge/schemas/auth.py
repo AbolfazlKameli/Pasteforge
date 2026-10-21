@@ -1,7 +1,9 @@
 from typing import Self
 
+from fastapi import status
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
+from .common import DataSchema, ErrorResponse
 from .users import UserOut
 from .validators import PasswordValidator
 
@@ -41,3 +43,15 @@ class UserTokenResponse(BaseModel):
 class UserLoginRequest(BaseModel):
     email: EmailStr
     password: PasswordValidator
+
+
+auth_responses = {
+    status.HTTP_401_UNAUTHORIZED: {
+        "model": DataSchema[ErrorResponse],
+        "description": "Authentication failed."
+    },
+    status.HTTP_403_FORBIDDEN: {
+        "model": DataSchema[ErrorResponse],
+        "description": "Not Permitted."
+    }
+}
