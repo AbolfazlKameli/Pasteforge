@@ -71,7 +71,7 @@ async def request_otp_to_register(register_data: UserRegisterRequest, db: db_dep
 
     await generate_and_send_otp(db, email)
 
-    logger.info("Registration OTP sent successfully")
+    logger.info('Registration OTP sent successfully')
 
     return {
         'data': {
@@ -115,7 +115,7 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
         password = request_data.password.get_secret_value()
         user = await register_user(db, password=password, email=email)
     except (ValueError, RuntimeError):
-        logger.exception("User registration failed during OTP verification")
+        logger.exception('User registration failed during OTP verification')
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Internal server error.')
 
     await db.delete(otp_obj)
@@ -123,7 +123,7 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
 
     await db.refresh(user)
 
-    logger.info("User registration completed successfully")
+    logger.info('User registration completed successfully')
 
     return {
         'data': {
@@ -134,13 +134,13 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
 
 
 @router.post(
-    "/login",
+    '/login',
     status_code=status.HTTP_200_OK,
     response_model=DataSchema[UserTokenResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when email or password is incorrect."
+            'model': DataSchema[ErrorResponse],
+            'description': 'Error when email or password is incorrect.'
         }
     }
 )
@@ -151,35 +151,35 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or password incorrect. if you believe your account is deactivated, call support."
+            detail='Email or password incorrect. if you believe your account is deactivated, call support.'
         )
 
-    refresh_token = create_jwt_token(user.id, email, "refresh", timedelta(hours=24))
+    refresh_token = create_jwt_token(user.id, email, 'refresh', timedelta(hours=24))
     response.set_cookie(
-        key="refresh_token",
+        key='refresh_token',
         value=refresh_token,
         httponly=True,
         secure=(not configs.DEBUG),
-        path="/auth/refresh",
+        path='/auth/refresh',
         expires=datetime.now(UTC) + timedelta(hours=24),
-        samesite="lax"
+        samesite='lax'
     )
 
-    access_token = create_jwt_token(user.id, email, "access")
+    access_token = create_jwt_token(user.id, email, 'access')
 
-    logger.info("User login successful")
+    logger.info('User login successful')
 
-    return {"data": {"message": "User logged in Successfully.", "access_token": access_token}}
+    return {'data': {'message': 'User logged in Successfully.', 'access_token': access_token}}
 
 
 @router.post(
-    "/refresh",
+    '/refresh',
     status_code=status.HTTP_200_OK,
     response_model=DataSchema[UserTokenResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Invalid refresh token."
+            'model': DataSchema[ErrorResponse],
+            'description': 'Invalid refresh token.'
         },
         **auth_responses
     }
@@ -189,28 +189,28 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     user = await get_authenticated_user(db, user_id)
 
     if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid refresh token.')
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token.')
 
     user_id = user.id
     user_email = user.email
 
     is_new = await blacklist_refresh_token(db, refresh_token)
     if not is_new:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Blocked refresh token.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Blocked refresh token.')
 
-    refresh_token = create_jwt_token(user_id, user_email, "refresh", timedelta(hours=24))
+    refresh_token = create_jwt_token(user_id, user_email, 'refresh', timedelta(hours=24))
     response.set_cookie(
-        key="refresh_token",
+        key='refresh_token',
         value=refresh_token,
         httponly=True,
         secure=(not configs.DEBUG),
-        path="/auth/refresh",
+        path='/auth/refresh',
         expires=datetime.now(UTC) + timedelta(hours=24),
-        samesite="lax"
+        samesite='lax'
     )
 
-    access_token = create_jwt_token(user_id, user_email, "access")
-    return {"data": {"message": "Token Refreshed successfully.", "access_token": access_token}}
+    access_token = create_jwt_token(user_id, user_email, 'access')
+    return {'data': {'message': 'Token Refreshed successfully.', 'access_token': access_token}}

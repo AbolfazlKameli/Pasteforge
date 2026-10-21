@@ -16,10 +16,10 @@ async def register_user(db: AsyncSession, email: str, password: str | None = Non
         db.add(user)
         await db.flush()
         await db.refresh(user)
-    except IntegrityError:
+    except IntegrityError as e:
         await db.rollback()
-        raise ValueError("Duplicate entry or constraint violated") from e
+        raise ValueError('Duplicate entry or constraint violated') from e
     except SQLAlchemyError as e:
         await db.rollback()
-        raise RuntimeError("Database operation failed") from e
+        raise RuntimeError('Database operation failed') from e
     return user
