@@ -38,8 +38,8 @@ class JWTBearer(HTTPBearer):
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
         if credentials:
-            if not credentials.scheme == "Bearer":
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme.")
+            if not credentials.scheme == 'Bearer':
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid authentication scheme.')
 
             try:
                 decode_access_token(credentials.credentials)
@@ -50,8 +50,8 @@ class JWTBearer(HTTPBearer):
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
-                headers={"WWW-Authenticate": "Bearer"}
+                detail='Not authenticated',
+                headers={'WWW-Authenticate': 'Bearer'}
             )
 
 
@@ -67,11 +67,11 @@ async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | 
         return None, 0
 
     if blacklist and blacklist.expires_at is None:
-        return "You have been permanently blocked. if you believe this is a mistake, please contact support.", 0
+        return 'You have been permanently blocked. if you believe this is a mistake, please contact support.', 0
 
     throttle_wait = (blacklist.expires_at - now).total_seconds()
-    expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    return f"You have been blocked until {expiration_date_time}", int(throttle_wait)
+    expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')
+    return f'You have been blocked until {expiration_date_time}', int(throttle_wait)
 
 
 async def refresh_otp_code(db: AsyncSession, otp: Otp, otp_code: str, expires_at: datetime):
@@ -106,7 +106,7 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         otp = await get_otp(db, email, True)
 
         expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
-        otp_code = f"{secrets.randbelow(1_000_000):06d}"
+        otp_code = f'{secrets.randbelow(1_000_000):06d}'
         blacklisted = False
 
         if otp is None:
@@ -121,15 +121,15 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         await db.commit()
 
         if blacklisted:
-            message = "Too many requests. Your email has been added to the blacklist."
+            message = 'Too many requests. Your email has been added to the blacklist.'
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
 
         send_otp_code_email.delay(email, otp_code)
 
     except IntegrityError:
-        logger.warning("OTP persistence failed due to an integrity constraint")
+        logger.warning('OTP persistence failed due to an integrity constraint')
 
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.") from None
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='OTP already exists. Please retry.') from None
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
@@ -150,37 +150,37 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
 def create_jwt_token(
         user_id: uuid.UUID,
         email: str,
-        token_type: Literal["access", "refresh"],
+        token_type: Literal['access', 'refresh'],
         expires_at: timedelta = timedelta(minutes=15)
 ) -> str:
-    payload = {"user_id": str(user_id), "email": email, "token_type": token_type}
+    payload = {'user_id': str(user_id), 'email': email, 'token_type': token_type}
     exp = datetime.now(UTC) + expires_at
-    payload.update({"exp": exp})
-    return jwt.encode(payload, configs.SECRET_KEY, algorithm="HS256")
+    payload.update({'exp': exp})
+    return jwt.encode(payload, configs.SECRET_KEY, algorithm='HS256')
 
 
 def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
     try:
-        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
-        token_type: str = payload.get("token_type")
+        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=['HS256'])
+        user_id: uuid.UUID = uuid.UUID(payload.get('user_id'))
+        token_type: str = payload.get('token_type')
 
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, Invalid token.",
+                detail='Authentication failed, Invalid token.',
             )
 
-        if token_type != "access":
+        if token_type != 'access':
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, invalid token type."
+                detail='Authentication failed, invalid token type.'
             )
 
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid or expired token.",
+            detail='Authentication failed, invalid or expired token.',
         )
 
     return user_id
@@ -188,26 +188,26 @@ def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
 
 def decode_refresh_token(token: str):
     try:
-        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
-        token_type: str = payload.get("token_type")
+        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=['HS256'])
+        user_id: uuid.UUID = uuid.UUID(payload.get('user_id'))
+        token_type: str = payload.get('token_type')
 
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, Invalid token.",
+                detail='Authentication failed, Invalid token.',
             )
 
-        if token_type != "refresh":
+        if token_type != 'refresh':
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, invalid token type."
+                detail='Authentication failed, invalid token type.'
             )
 
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid or expired token.",
+            detail='Authentication failed, invalid or expired token.',
         )
 
     return user_id
@@ -218,7 +218,7 @@ async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid user.",
+            detail='Authentication failed, invalid user.',
         )
     return user
 

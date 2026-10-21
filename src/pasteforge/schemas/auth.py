@@ -28,7 +28,7 @@ class OtpVerifyUserRegisterRequest(BaseModel):
     confirm_password: PasswordValidator
     otp_code: str = Field(min_length=6, max_length=6)
 
-    @model_validator(mode="after")
+    @model_validator(mode='after')
     def check_passwords_match(self) -> Self:
         if self.password != self.confirm_password:
             raise ValueError("Passwords don't match")
@@ -47,11 +47,11 @@ class UserLoginRequest(BaseModel):
 
 auth_responses = {
     status.HTTP_401_UNAUTHORIZED: {
-        "model": DataSchema[ErrorResponse],
-        "description": "Authentication failed."
+        'model': DataSchema[ErrorResponse],
+        'description': 'Authentication failed.'
     },
     status.HTTP_403_FORBIDDEN: {
-        "model": DataSchema[ErrorResponse],
-        "description": "Not Permitted."
+        'model': DataSchema[ErrorResponse],
+        'description': 'Not Permitted.'
     }
 }
