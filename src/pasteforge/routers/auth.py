@@ -1,6 +1,7 @@
 import logging
+from datetime import timedelta, datetime, UTC
 
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, status, HTTPException, Response
 
 from src.dependencies import db_dependency
 from src.pasteforge.core.config import configs
@@ -10,10 +11,15 @@ from src.pasteforge.schemas.auth import (
     UserOTPResponse,
     UserRegisterRequest,
     UserRegisterResponse,
-    OtpVerifyUserRegisterRequest
+    OtpVerifyUserRegisterRequest, UserTokenResponse, UserLoginRequest
 )
 from src.pasteforge.schemas.common import DataSchema, ErrorResponse
-from src.pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp
+from src.pasteforge.services.auth import (
+    check_blacklist_for_user,
+    generate_and_send_otp,
+    authenticate_user,
+    create_jwt_token
+)
 from src.pasteforge.services.users import register_user
 
 router = APIRouter(prefix='/auth', tags=['auth'])
@@ -118,3 +124,42 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
             'user': user
         }
     }
+
+
+@router.post(
+    "/login",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[UserTokenResponse],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "model": DataSchema[ErrorResponse],
+            "description": "Error when email or password is incorrect."
+        }
+    }
+)
+async def user_login(login_data: UserLoginRequest, db: db_dependency, response: Response):
+    email = str(login_data.email)
+    user = await authenticate_user(db, email, login_data.password.get_secret_value())
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or password incorrect. if you believe your account is deactivated, call support."
+        )
+
+    refresh_token = create_jwt_token(user.id, email, "refresh", timedelta(hours=24))
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=(not configs.DEBUG),
+        path="/auth/refresh",
+        expires=datetime.now(UTC) + timedelta(hours=24),
+        samesite="lax"
+    )
+
+    access_token = create_jwt_token(user.id, email, "access")
+
+    logger.info("User login successful")
+
+    return {"data": {"message": "User logged in Successfully.", "access_token": access_token}}
