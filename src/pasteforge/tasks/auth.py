@@ -1,6 +1,6 @@
-from src.pasteforge.exceptions import EmailDeliveryError
-from src.pasteforge.infrastructure.email import EmailHandler
-from src.pasteforge.infrastructure.worker import celery_app
+from pasteforge.exceptions import EmailDeliveryError
+from pasteforge.infrastructure.email import EmailHandler
+from pasteforge.infrastructure.worker import celery_app
 
 
 @celery_app.task(autoretry_for=(EmailDeliveryError,), retry_kwargs={"max_retries": 3, "countdown": 5})

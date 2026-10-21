@@ -3,11 +3,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Response, status
-from src.dependencies import db_dependency
-from src.pasteforge.core.config import configs
-from src.pasteforge.repositories.auth import get_otp
-from src.pasteforge.repositories.users import check_email_exists
-from src.pasteforge.schemas.auth import (
+
+from dependencies import db_dependency
+from pasteforge.core.config import configs
+from pasteforge.repositories.auth import get_otp
+from pasteforge.repositories.users import check_email_exists
+from pasteforge.schemas.auth import (
     OtpVerifyUserRegisterRequest,
     UserLoginRequest,
     UserOTPResponse,
@@ -16,8 +17,8 @@ from src.pasteforge.schemas.auth import (
     UserTokenResponse,
     auth_responses,
 )
-from src.pasteforge.schemas.common import DataSchema, ErrorResponse
-from src.pasteforge.services.auth import (
+from pasteforge.schemas.common import DataSchema, ErrorResponse
+from pasteforge.services.auth import (
     authenticate_user,
     blacklist_refresh_token,
     check_blacklist_for_user,
@@ -26,7 +27,7 @@ from src.pasteforge.services.auth import (
     generate_and_send_otp,
     get_authenticated_user,
 )
-from src.pasteforge.services.users import register_user
+from pasteforge.services.users import register_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -204,4 +205,7 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     )
 
     access_token = create_jwt_token(user_id, user_email, "access")
+
+    logger.info("Authentication token refresh completed successfully")
+
     return {"data": {"message": "Token Refreshed successfully.", "access_token": access_token}}

@@ -11,9 +11,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.core.config import configs
-from src.pasteforge.models import Otp, OtpBlacklist, User
-from src.pasteforge.repositories.auth import (
+
+from dependencies import db_dependency
+from pasteforge.core.config import configs
+from pasteforge.models import Otp, OtpBlacklist, User
+from pasteforge.repositories.auth import (
     create_otp,
     create_token_blacklist,
     get_active_blacklist_by_email,
@@ -22,10 +24,8 @@ from src.pasteforge.repositories.auth import (
     get_user_blacklist_count,
     reset_otp_attempts,
 )
-from src.pasteforge.repositories.users import get_user_by_email, get_user_by_id
-from src.pasteforge.tasks.auth import send_otp_code_email
-
-from dependencies import db_dependency
+from pasteforge.repositories.users import get_user_by_email, get_user_by_id
+from pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
 logger = logging.getLogger(__name__)
