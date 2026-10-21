@@ -53,3 +53,16 @@ class OtpBlacklist(Base):
 
     def __str__(self):
         return f"{self.id} - {self.email} - {self.expires_at}"
+
+
+class RefreshTokenBlacklist(Base):
+    __tablename__ = "refresh_token_blacklist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    refresh: Mapped[str] = mapped_column(nullable=False)
+
+    def __repr__(self):
+        return f"RefreshTokenBlacklist({self.id}, {self.refresh})"
+
+    def __str__(self):
+        return f"{self.id} - {self.refresh}"
