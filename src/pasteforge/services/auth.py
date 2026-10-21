@@ -1,10 +1,13 @@
 import logging
 import secrets
-from datetime import datetime, UTC
+import uuid
+from datetime import datetime, UTC, timedelta
+from typing import Literal
 
 import sqlalchemy as sa
 from argon2 import PasswordHasher
 from fastapi import HTTPException, status
+from jose import jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,3 +115,14 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
 
     return user
 
+
+def create_jwt_token(
+        user_id: uuid.UUID,
+        email: str,
+        token_type: Literal["access", "refresh"],
+        expires_at: timedelta = timedelta(minutes=15)
+) -> str:
+    payload = {"user_id": str(user_id), "email": email, "token_type": token_type}
+    exp = datetime.now(UTC) + expires_at
+    payload.update({"exp": exp})
+    return jwt.encode(payload, configs.SECRET_KEY, algorithm="HS256")
