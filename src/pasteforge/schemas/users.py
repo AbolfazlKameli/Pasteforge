@@ -31,3 +31,15 @@ class OTPSetPasswordRequest(BaseModel):
         if self.new_password != self.confirm_password:
             raise ValueError("Passwords don't match")
         return self
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: PasswordValidator
+    new_password: PasswordValidator
+    confirm_password: PasswordValidator
+
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        if self.new_password != self.confirm_password:
+            raise ValueError("Passwords don't match")
+        return self
