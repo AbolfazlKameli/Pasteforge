@@ -1,11 +1,11 @@
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
-DataT = TypeVar('DataT')
+DataT = TypeVar("DataT")
 
 
-class DataSchema(BaseModel, Generic[DataT]):
+class DataSchema[DataT](BaseModel):
     data: DataT
 
 
