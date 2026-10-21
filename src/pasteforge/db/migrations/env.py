@@ -4,8 +4,6 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from src.pasteforge import models  # noqa, Importing models for alembi  c
 from src.pasteforge.core.config import configs
 from src.pasteforge.db.database import Base
 
@@ -32,7 +30,7 @@ target_metadata = Base.metadata
 # ... etc.
 
 database_url = configs.DATABASE_URL
-config.set_main_option("sqlalchemy.url", database_url.replace('%', '%%'))
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:
