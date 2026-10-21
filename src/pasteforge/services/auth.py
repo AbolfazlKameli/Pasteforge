@@ -6,8 +6,9 @@ from typing import Literal
 
 import sqlalchemy as sa
 from argon2 import PasswordHasher
-from fastapi import HTTPException, status
-from jose import jwt
+from fastapi import HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -126,3 +127,57 @@ def create_jwt_token(
     exp = datetime.now(UTC) + expires_at
     payload.update({"exp": exp})
     return jwt.encode(payload, configs.SECRET_KEY, algorithm="HS256")
+
+
+def decode_access_token(token: str):
+    try:
+        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
+        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
+        token_type: str = payload.get("token_type")
+
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed, Invalid token.",
+            )
+
+        if token_type != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed, invalid token type."
+            )
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed, invalid or expired token.",
+        )
+
+    return user_id
+
+
+def decode_refresh_token(token: str):
+    try:
+        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
+        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
+        token_type: str = payload.get("token_type")
+
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed, Invalid token.",
+            )
+
+        if token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed, invalid token type."
+            )
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed, invalid or expired token.",
+        )
+
+    return user_id
