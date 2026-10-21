@@ -3,14 +3,26 @@ import logging
 from fastapi import APIRouter, HTTPException, status
 
 from dependencies import db_dependency
+from pasteforge.repositories.auth import get_otp
 from pasteforge.repositories.users import get_user_by_email
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
-from pasteforge.schemas.users import ResetPasswordRequest, UserOut
+from pasteforge.schemas.users import OTPSetPasswordRequest, ResetPasswordRequest, UserOut
 from pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp, user_dependency
+from pasteforge.tasks import send_notification_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 logger = logging.getLogger(__name__)
+
+password_change_message = """
+    Hi, The password for your Pasteforge account was successfully changed.
+    If you made this change, no further action is required.
+    If you did not change your password, your account may be at risk.
+    Please reset your password immediately and contact our support team if you need assistance.
+    For your security, never share your password with anyone.
+    Best regards,  
+    The Pasteforge Team
+"""
 
 
 @router.get(
@@ -48,3 +60,36 @@ async def request_otp_to_reset_password(db: db_dependency, reset_data: ResetPass
     logger.info("Password reset OTP request completed successfully")
 
     return {"data": {"message": "Otp code sent for reset password."}}
+
+
+@router.post(
+    "/password/set",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[SuccessResponse],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid email address."},
+        status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid OTP code."},
+    },
+)
+async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest):
+    otp_code = validated_data.otp_code
+    email = str(validated_data.email)
+
+    otp_obj = await get_otp(db, email)
+
+    if otp_obj is None or not otp_obj.verify_otp(otp_code):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
+
+    user = await get_user_by_email(db, email)
+
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    user.set_password(validated_data.new_password.get_secret_value())
+    db.add(user)
+    await db.delete(otp_obj)
+    await db.commit()
+
+    send_notification_email.delay(email, "Your Pasteforge Password Has Been Changed", password_change_message)
+
+    return {"data": {"message": "Your password has been changed successfully."}}
