@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.pasteforge.core.config import configs
-from src.pasteforge.models import Otp, OtpBlacklist
+from src.pasteforge.models import Otp, OtpBlacklist, User
 from src.pasteforge.repositories.auth import (
     create_otp,
     get_active_blacklist_by_email,
@@ -17,6 +17,7 @@ from src.pasteforge.repositories.auth import (
     get_user_blacklist_count,
     reset_otp_attempts
 )
+from src.pasteforge.repositories.users import get_user_by_email
 from src.pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
@@ -95,3 +96,19 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         logger.warning("OTP persistence failed due to an integrity constraint")
 
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.") from None
+
+
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
+    user = await get_user_by_email(db, email)
+
+    if user is None:
+        return None
+
+    if not user.is_active:
+        return None
+
+    if not user.verify_password(password):
+        return None
+
+    return user
+
