@@ -12,6 +12,9 @@ CELERY_CONFIG = {
     'task_time_limit': 90,
     'task_max_retries': 3,
     'task_default_retry_delay': 30,
+    'imports': [
+        'src.pasteforge.tasks'
+    ]
 }
 
 celery_app = Celery(__name__)

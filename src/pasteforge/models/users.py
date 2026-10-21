@@ -23,10 +23,10 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=datetime.now(UTC))
 
     def __repr__(self):
-        return f"User({self.id}, {self.email}, {self.password}, {self.is_active}, {self.created_at}, {self.updated_at})"
+        return f'User({self.id}, {self.email}, {self.password}, {self.is_active}, {self.created_at}, {self.updated_at})'
 
     def __str__(self):
-        return f"{self.id} - {self.email} - {self.is_active}"
+        return f'{self.id} - {self.email} - {self.is_active}'
 
     def verify_password(self, plain_password: str) -> bool:
         if self.password.startswith(configs.UNUSABLE_PASSWORD_MARKER):

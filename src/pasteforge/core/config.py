@@ -1,7 +1,9 @@
+from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
@@ -15,10 +17,24 @@ class BaseConfig(BaseSettings):
     )
 
 
+class OTPSettings(BaseModel):
+    EXPIRATION_TIME: timedelta = timedelta(minutes=2)
+    MAX_ATTEMPTS: int = Field(default=3, ge=1)
+    BLACKLIST_EXPIRATION_TIME_LEVELS: list[str] = ['1', '2', '3']
+    BLACKLIST_EXPIRATION_TIME: dict[str, timedelta] = {
+        '1': timedelta(minutes=5),
+        '2': timedelta(minutes=10),
+        '3': timedelta(minutes=20),
+    }
+
+
 class GlobalConfig(BaseConfig):
     TIMEZONE: str
+    SECRET_KEY: str
 
-    UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
+    UNUSABLE_PASSWORD_MARKER: str = '!UNUSABLE'
+
+    OTP_SETTINGS: OTPSettings = OTPSettings()
 
     LOG_LEVEL: LogLevel = 'DEBUG'
     SQLALCHEMY_LOG_LEVEL: LogLevel = 'DEBUG'
