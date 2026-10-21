@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.models import User
+
+from pasteforge.models import User
 
 
 async def register_user(db: AsyncSession, email: str, password: str | None = None) -> User:

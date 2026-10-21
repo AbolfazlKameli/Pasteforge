@@ -2,7 +2,8 @@ import uuid
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.models import User
+
+from pasteforge.models import User
 
 
 async def check_email_exists(db: AsyncSession, email: str) -> bool:
@@ -22,3 +23,8 @@ async def get_user_by_email(db: AsyncSession, email: str, for_update: bool = Fal
 async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID):
     user = await db.get(User, user_id)
     return user
+
+
+async def update_user(db: AsyncSession, user_id: uuid.UUID, **kwargs):
+    await db.execute(sa.update(User).where(User.id == user_id).values(**kwargs))
+    await db.commit()
