@@ -1,7 +1,8 @@
 import logging
 from datetime import timedelta, datetime, UTC
+from typing import Annotated
 
-from fastapi import APIRouter, status, HTTPException, Response
+from fastapi import APIRouter, status, HTTPException, Response, Cookie
 
 from src.dependencies import db_dependency
 from src.pasteforge.core.config import configs
@@ -11,14 +12,20 @@ from src.pasteforge.schemas.auth import (
     UserOTPResponse,
     UserRegisterRequest,
     UserRegisterResponse,
-    OtpVerifyUserRegisterRequest, UserTokenResponse, UserLoginRequest
+    OtpVerifyUserRegisterRequest,
+    UserTokenResponse,
+    UserLoginRequest,
+    auth_responses,
 )
 from src.pasteforge.schemas.common import DataSchema, ErrorResponse
 from src.pasteforge.services.auth import (
     check_blacklist_for_user,
     generate_and_send_otp,
     authenticate_user,
-    create_jwt_token
+    create_jwt_token,
+    decode_refresh_token,
+    get_authenticated_user,
+    blacklist_refresh_token,
 )
 from src.pasteforge.services.users import register_user
 
@@ -163,3 +170,47 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
     logger.info("User login successful")
 
     return {"data": {"message": "User logged in Successfully.", "access_token": access_token}}
+
+
+@router.post(
+    "/refresh",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[UserTokenResponse],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "model": DataSchema[ErrorResponse],
+            "description": "Invalid refresh token."
+        },
+        **auth_responses
+    }
+)
+async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Cookie()], response: Response):
+    user_id = decode_refresh_token(refresh_token)
+    user = await get_authenticated_user(db, user_id)
+
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token.")
+
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token.")
+
+    user_id = user.id
+    user_email = user.email
+
+    is_new = await blacklist_refresh_token(db, refresh_token)
+    if not is_new:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Blocked refresh token.")
+
+    refresh_token = create_jwt_token(user_id, user_email, "refresh", timedelta(hours=24))
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=(not configs.DEBUG),
+        path="/auth/refresh",
+        expires=datetime.now(UTC) + timedelta(hours=24),
+        samesite="lax"
+    )
+
+    access_token = create_jwt_token(user_id, user_email, "access")
+    return {"data": {"message": "Token Refreshed successfully.", "access_token": access_token}}
