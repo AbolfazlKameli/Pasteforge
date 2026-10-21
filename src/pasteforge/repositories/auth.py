@@ -3,7 +3,7 @@ from datetime import datetime
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.pasteforge.models import OtpBlacklist, Otp
+from src.pasteforge.models import OtpBlacklist, Otp, RefreshTokenBlacklist
 
 
 async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_time: datetime) -> OtpBlacklist | None:
@@ -43,3 +43,14 @@ async def create_otp(db: AsyncSession, email: str, code: str, expires_at: dateti
 
 async def reset_otp_attempts(db: AsyncSession, otp: Otp):
     return await db.execute(sa.update(Otp).where(Otp.id == otp.id).values(attempts=0))
+
+
+async def get_blacklist_by_refresh_token(db: AsyncSession, refresh_token: str) -> RefreshTokenBlacklist:
+    result = await db.execute(sa.select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.refresh == refresh_token))
+    return result.scalar_one_or_none()
+
+
+async def create_token_blacklist(db: AsyncSession, refresh_token: str) -> RefreshTokenBlacklist:
+    blacklist = RefreshTokenBlacklist(refresh=refresh_token)
+    db.add(blacklist)
+    await db.commit()
