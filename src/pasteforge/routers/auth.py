@@ -205,4 +205,7 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     )
 
     access_token = create_jwt_token(user_id, user_email, "access")
+
+    logger.info("Authentication token refresh completed successfully")
+
     return {"data": {"message": "Token Refreshed successfully.", "access_token": access_token}}
