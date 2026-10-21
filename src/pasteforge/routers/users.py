@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from dependencies import db_dependency
 from pasteforge.repositories.auth import get_otp
-from pasteforge.repositories.users import check_email_exists, get_user_by_email
+from pasteforge.repositories.users import check_email_exists, get_user_by_email, update_user
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
 from pasteforge.schemas.users import (
@@ -55,14 +55,10 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
     if await check_email_exists(db, email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already taken.")
 
-    for key, value in update_request_dict.items():
-        setattr(user, key, value)
+    await update_user(db, user.id, **update_request_dict)
 
     if email is not None:
         await generate_and_send_otp(db, email)
-
-    db.add(user)
-    await db.commit()
 
     return {"data": {"message": "Otp code sent to your new email address."}}
 
@@ -84,9 +80,8 @@ async def verify_user_account(db: db_dependency, activation_request: UserActivat
     if otp_obj is None or not otp_obj.verify_otp(otp_code):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
 
-    user = await get_user_by_email(db, user.email, for_update=True)
-    user.email = new_email
-    db.add(user)
+    await update_user(db, user.id, email=new_email)
+
     await db.delete(otp_obj)
     await db.commit()
 
