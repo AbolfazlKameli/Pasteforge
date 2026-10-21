@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies import db_dependency
+from pasteforge.repositories.auth import create_token_blacklist
 from src.pasteforge.core.config import configs
 from src.pasteforge.models import Otp, OtpBlacklist, User
 from src.pasteforge.repositories.auth import (
@@ -20,7 +21,8 @@ from src.pasteforge.repositories.auth import (
     get_active_blacklist_by_email,
     get_otp,
     get_user_blacklist_count,
-    reset_otp_attempts
+    reset_otp_attempts,
+    get_blacklist_by_refresh_token
 )
 from src.pasteforge.repositories.users import get_user_by_email, get_user_by_id
 from src.pasteforge.tasks.auth import send_otp_code_email
@@ -219,3 +221,14 @@ async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID
             detail="Authentication failed, invalid user.",
         )
     return user
+
+
+async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> bool:
+    blacklist = await get_blacklist_by_refresh_token(db, refresh_token)
+
+    if blacklist is not None:
+        return False
+
+    await create_token_blacklist(db, refresh_token)
+
+    return True
