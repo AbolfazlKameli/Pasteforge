@@ -64,14 +64,14 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
 
 
 @router.post(
-    "/profile/verify",
+    "/profile/email/verify",
     status_code=status.HTTP_200_OK,
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid or expired OTP code."}
     },
 )
-async def verify_user_account(db: db_dependency, activation_request: UserActivationRequest, user: user_dependency):
+async def verify_user_email(db: db_dependency, activation_request: UserActivationRequest, user: user_dependency):
     otp_code = activation_request.otp_code
     new_email = str(activation_request.new_email)
 
@@ -84,6 +84,8 @@ async def verify_user_account(db: db_dependency, activation_request: UserActivat
 
     await db.delete(otp_obj)
     await db.commit()
+
+    logger.info("User email verification completed successfully")
 
     return {"data": {"message": "Your account has been verified successfully."}}
 
@@ -146,6 +148,8 @@ async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest)
     await db.delete(otp_obj)
     await db.commit()
 
+    logger.info("User password reset completed successfully")
+
     send_notification_email.delay(email, "Your Pasteforge Password Has Been Changed", password_change_message)
 
     return {"data": {"message": "Your password has been changed successfully."}}
@@ -171,6 +175,8 @@ async def change_user_password(db: db_dependency, change_request: ChangePassword
     user.set_password(new_password)
     db.add(user)
     await db.commit()
+
+    logger.info("User password changed successfully")
 
     send_notification_email.delay(email, "Your Pasteforge Password Has Been Changed", password_change_message)
 
