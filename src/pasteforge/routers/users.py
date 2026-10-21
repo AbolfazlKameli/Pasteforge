@@ -7,7 +7,7 @@ from pasteforge.repositories.auth import get_otp
 from pasteforge.repositories.users import get_user_by_email
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
-from pasteforge.schemas.users import OTPSetPasswordRequest, ResetPasswordRequest, UserOut
+from pasteforge.schemas.users import ChangePasswordRequest, OTPSetPasswordRequest, ResetPasswordRequest, UserOut
 from pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp, user_dependency
 from pasteforge.tasks import send_notification_email
 
@@ -88,6 +88,32 @@ async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest)
     user.set_password(validated_data.new_password.get_secret_value())
     db.add(user)
     await db.delete(otp_obj)
+    await db.commit()
+
+    send_notification_email.delay(email, "Your Pasteforge Password Has Been Changed", password_change_message)
+
+    return {"data": {"message": "Your password has been changed successfully."}}
+
+
+@router.post(
+    "/password/change",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[SuccessResponse],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Incorrect password."},
+        **auth_responses,
+    },
+)
+async def change_user_password(db: db_dependency, change_request: ChangePasswordRequest, user: user_dependency):
+    email = user.email
+    password = change_request.old_password.get_secret_value()
+    new_password = change_request.new_password.get_secret_value()
+
+    if not user.verify_password(password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password.")
+
+    user.set_password(new_password)
+    db.add(user)
     await db.commit()
 
     send_notification_email.delay(email, "Your Pasteforge Password Has Been Changed", password_change_message)
