@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from pasteforge.core.loggers import setup_api_logging  # noqa
-from pasteforge.routers import auth_router
+from pasteforge.routers import auth_router, users_router
 
 app = FastAPI(
     title="PasteForge",
@@ -18,6 +18,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.exception_handler(StarletteHTTPException)
