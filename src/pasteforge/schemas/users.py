@@ -43,3 +43,7 @@ class ChangePasswordRequest(BaseModel):
         if self.new_password != self.confirm_password:
             raise ValueError("Passwords don't match")
         return self
+
+
+class UserUpdateRequest(BaseModel):
+    email: EmailStr
