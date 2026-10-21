@@ -1,19 +1,20 @@
 [project]
 name = "pasteforge"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "A lightweight paste-sharing service built with FastAPI"
 authors = [
     { name = "Abolfazl Kameli", email = "abolfazlkameli0@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.32.0",
+    "celery[redis]>=5.6.3",
     "fastapi>=0.144.0",
+    "pydantic-settings>=2.16.0",
+    "pydantic[email,timezone]>=2.14.1",
+    "python-jose>=3.5.0",
+    "sqlalchemy[asyncio]>=2.1.5",
     "uvicorn>=0.54.0",
 ]
-
-[project.scripts]
-pasteforge = "pasteforge:main"
-
-[build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
-build-backend = "uv_build"
