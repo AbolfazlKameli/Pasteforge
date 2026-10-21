@@ -11,6 +11,7 @@ from pasteforge.schemas.users import (
     ChangePasswordRequest,
     OTPSetPasswordRequest,
     ResetPasswordRequest,
+    UserActivationRequest,
     UserOut,
     UserUpdateRequest,
 )
@@ -64,6 +65,32 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
     await db.commit()
 
     return {"data": {"message": "Otp code sent to your new email address."}}
+
+
+@router.post(
+    "/profile/verify",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[SuccessResponse],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid or expired OTP code."}
+    },
+)
+async def verify_user_account(db: db_dependency, activation_request: UserActivationRequest, user: user_dependency):
+    otp_code = activation_request.otp_code
+    new_email = str(activation_request.new_email)
+
+    otp_obj = await get_otp(db, new_email)
+
+    if otp_obj is None or not otp_obj.verify_otp(otp_code):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
+
+    user = await get_user_by_email(db, user.email, for_update=True)
+    user.email = new_email
+    db.add(user)
+    await db.delete(otp_obj)
+    await db.commit()
+
+    return {"data": {"message": "Your account has been verified successfully."}}
 
 
 @router.post(
