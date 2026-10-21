@@ -14,9 +14,9 @@ class EmailHandler:
     @staticmethod
     def _prepare_message(to: str, subject: str, body: str) -> EmailMessage:
         msg = EmailMessage()
-        msg['From'] = configs.EMAIL_HOST_USERNAME
-        msg['To'] = to
-        msg['Subject'] = subject
+        msg["From"] = configs.EMAIL_HOST_USERNAME
+        msg["To"] = to
+        msg["Subject"] = subject
         msg.set_content(body)
         return msg
 
@@ -32,7 +32,7 @@ class EmailHandler:
                 smtp.send_message(msg)
 
         except SMTPAuthenticationError as exc:
-            raise EmailDeliveryError('Email authentication failed') from exc
+            raise EmailDeliveryError("Email authentication failed") from exc
 
         except (SMTPException, OSError) as exc:
-            raise EmailDeliveryError('Unable to send email') from exc
+            raise EmailDeliveryError("Unable to send email") from exc
