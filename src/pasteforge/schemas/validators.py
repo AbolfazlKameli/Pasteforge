@@ -1,15 +1,27 @@
 from typing import Annotated
 
-from pydantic import SecretStr, AfterValidator
+from pydantic import AfterValidator, SecretStr
 
 # Password Validator
 SPECIAL_CHARS: set[str] = {
-    '$', '@', '#',
-    '%', '!', '^',
-    '&', '*', '(',
-    ')', '-', '_',
-    '+', '=', '{',
-    '}', '[', ']',
+    "$",
+    "@",
+    "#",
+    "%",
+    "!",
+    "^",
+    "&",
+    "*",
+    "(",
+    ")",
+    "-",
+    "_",
+    "+",
+    "=",
+    "{",
+    "}",
+    "[",
+    "]",
 }
 
 MIN_LENGTH: int = 8
@@ -31,26 +43,22 @@ def validate_password(v: SecretStr) -> SecretStr:
     value = v.get_secret_value()
 
     if not isinstance(value, str):
-        raise TypeError('string required')
+        raise TypeError("string required")
 
     if len(value) < min_length or len(value) > max_length:
-        raise ValueError(f'length should be at least {min_length} but not more than {max_length}')
+        raise ValueError(f"length should be at least {min_length} but not more than {max_length}")
 
     if includes_numbers and not any(char.isdigit() for char in value):
-        raise ValueError('Password should have at least one numeral')
+        raise ValueError("Password should have at least one numeral")
 
     if includes_uppercase and not any(char.isupper() for char in value):
-        raise ValueError('Password should have at least one uppercase letter')
+        raise ValueError("Password should have at least one uppercase letter")
 
     if includes_lowercase and not any(char.islower() for char in value):
-        raise ValueError('Password should have at least one lowercase letter')
+        raise ValueError("Password should have at least one lowercase letter")
 
-    if includes_special_chars and not any(
-            char in special_chars for char in value
-    ):
-        raise ValueError(
-            f'Password should have at least one of the symbols {special_chars}'
-        )
+    if includes_special_chars and not any(char in special_chars for char in value):
+        raise ValueError(f"Password should have at least one of the symbols {special_chars}")
 
     return v
 

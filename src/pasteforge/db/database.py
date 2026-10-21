@@ -1,9 +1,8 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
 from src.pasteforge.core.config import configs
 
 engine = create_async_engine(
@@ -16,6 +15,4 @@ SessionLocal = async_sessionmaker(bind=engine)
 
 
 class Base(DeclarativeBase):
-    type_annotation_map = {
-        datetime: DateTime(timezone=True)
-    }
+    type_annotation_map = {datetime: DateTime(timezone=True)}
