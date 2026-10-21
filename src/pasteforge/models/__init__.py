@@ -1,2 +1,2 @@
-from .authentication import Otp
+from .authentication import *
 from .users import *
