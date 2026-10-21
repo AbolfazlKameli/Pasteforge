@@ -2,7 +2,6 @@ import uuid
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.pasteforge.models import User
 
 

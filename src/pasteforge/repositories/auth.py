@@ -2,19 +2,13 @@ from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.pasteforge.models import OtpBlacklist, Otp, RefreshTokenBlacklist
+from src.pasteforge.models import Otp, OtpBlacklist, RefreshTokenBlacklist
 
 
 async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_time: datetime) -> OtpBlacklist | None:
-    stmt = (
-        sa.select(OtpBlacklist)
-        .where(
-            (OtpBlacklist.email == email) &
-            (
-                    (OtpBlacklist.expires_at >= current_time) | (OtpBlacklist.expires_at.is_(None))
-            )
-        )
+    stmt = sa.select(OtpBlacklist).where(
+        (OtpBlacklist.email == email)
+        & ((OtpBlacklist.expires_at >= current_time) | (OtpBlacklist.expires_at.is_(None)))
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -50,7 +44,7 @@ async def get_blacklist_by_refresh_token(db: AsyncSession, refresh_token: str) -
     return result.scalar_one_or_none()
 
 
-async def create_token_blacklist(db: AsyncSession, refresh_token: str) -> RefreshTokenBlacklist:
+async def create_token_blacklist(db: AsyncSession, refresh_token: str) -> None:
     blacklist = RefreshTokenBlacklist(refresh=refresh_token)
     db.add(blacklist)
     await db.commit()

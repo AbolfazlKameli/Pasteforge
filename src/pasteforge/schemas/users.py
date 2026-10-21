@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, UUID4
+from pydantic import UUID4, BaseModel, EmailStr
 
 
 class UserBase(BaseModel):
