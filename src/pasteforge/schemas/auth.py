@@ -31,3 +31,13 @@ class OtpVerifyUserRegisterRequest(BaseModel):
         if self.password != self.confirm_password:
             raise ValueError("Passwords don't match")
         return self
+
+
+class UserTokenResponse(BaseModel):
+    message: str
+    access_token: str
+
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: PasswordValidator
