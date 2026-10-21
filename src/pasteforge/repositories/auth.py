@@ -2,7 +2,8 @@ from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.models import Otp, OtpBlacklist, RefreshTokenBlacklist
+
+from pasteforge.models import Otp, OtpBlacklist, RefreshTokenBlacklist
 
 
 async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_time: datetime) -> OtpBlacklist | None:

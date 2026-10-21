@@ -3,7 +3,8 @@ from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.db.database import SessionLocal
+
+from pasteforge.db.database import SessionLocal
 
 
 async def get_db() -> AsyncGenerator[AsyncSession]:
