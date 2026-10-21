@@ -1,9 +1,13 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.pasteforge.db.database import Base
+
+hasher = PasswordHasher()
 
 
 class Otp(Base):
@@ -20,6 +24,21 @@ class Otp(Base):
 
     def __str__(self):
         return f"{self.email} - {self.attempts} - {self.expires_at}"
+
+    def set_code(self, otp_code: str) -> None:
+        self.hashed_code = hasher.hash(otp_code)
+
+    def verify_otp(self, otp_code: str) -> bool:
+        now = datetime.now(UTC)
+
+        if self.expires_at < now:
+            return False
+
+        try:
+            hasher.verify(self.hashed_code, otp_code)
+            return True
+        except VerifyMismatchError:
+            return False
 
 
 class OtpBlacklist(Base):
