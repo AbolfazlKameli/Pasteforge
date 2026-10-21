@@ -30,6 +30,7 @@ class OTPSettings(BaseModel):
 
 class GlobalConfig(BaseConfig):
     TIMEZONE: str
+    SECRET_KEY: str
 
     UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
 
