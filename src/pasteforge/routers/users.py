@@ -4,10 +4,16 @@ from fastapi import APIRouter, HTTPException, status
 
 from dependencies import db_dependency
 from pasteforge.repositories.auth import get_otp
-from pasteforge.repositories.users import get_user_by_email
+from pasteforge.repositories.users import check_email_exists, get_user_by_email
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
-from pasteforge.schemas.users import ChangePasswordRequest, OTPSetPasswordRequest, ResetPasswordRequest, UserOut
+from pasteforge.schemas.users import (
+    ChangePasswordRequest,
+    OTPSetPasswordRequest,
+    ResetPasswordRequest,
+    UserOut,
+    UserUpdateRequest,
+)
 from pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp, user_dependency
 from pasteforge.tasks import send_notification_email
 
@@ -30,6 +36,34 @@ password_change_message = """
 )
 async def get_user_profile(user: user_dependency):
     return {"data": user}
+
+
+@router.put(
+    "/profile",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[SuccessResponse],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid email or username"},
+        **auth_responses,
+    },
+)
+async def update_user_profile(db: db_dependency, update_request: UserUpdateRequest, user: user_dependency):
+    update_request_dict = update_request.model_dump(exclude_unset=True)
+    email = update_request_dict.pop("email", None)
+
+    if await check_email_exists(db, email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already taken.")
+
+    for key, value in update_request_dict.items():
+        setattr(user, key, value)
+
+    if email is not None:
+        await generate_and_send_otp(db, email)
+
+    db.add(user)
+    await db.commit()
+
+    return {"data": {"message": "Otp code sent to your new email address."}}
 
 
 @router.post(
