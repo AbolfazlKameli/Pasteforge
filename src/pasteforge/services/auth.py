@@ -221,6 +221,16 @@ async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID
     return user
 
 
+async def get_active_user(user: Annotated[User, Depends(get_authenticated_user)]):
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user account")
+
+    return user
+
+
+user_dependency = Annotated[User, Depends(get_active_user)]
+
+
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> bool:
     blacklist = await get_blacklist_by_refresh_token(db, refresh_token)
 
