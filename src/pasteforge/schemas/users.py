@@ -11,3 +11,7 @@ class UserBase(BaseModel):
 class UserOut(UserBase):
     id: UUID4
     updated_at: datetime
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
