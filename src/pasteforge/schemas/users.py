@@ -47,3 +47,8 @@ class ChangePasswordRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     email: EmailStr
+
+
+class UserActivationRequest(BaseModel):
+    otp_code: str = Field(min_length=6, max_length=6)
+    new_email: EmailStr
