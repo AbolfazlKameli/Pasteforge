@@ -2,7 +2,8 @@ import logging
 import logging.config
 
 from celery.signals import setup_logging as celery_setup_logging
-from src.pasteforge.core.config import configs
+
+from pasteforge.core.config import configs
 
 
 def build_logging_config(component: str) -> dict:
@@ -11,7 +12,7 @@ def build_logging_config(component: str) -> dict:
 
     configs.LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    component_logger = "src.pasteforge" if component == "api" else "src.pasteforge.infrastructure.worker"
+    component_logger = "pasteforge" if component == "api" else "src.pasteforge.infrastructure.worker"
 
     return {
         "version": 1,

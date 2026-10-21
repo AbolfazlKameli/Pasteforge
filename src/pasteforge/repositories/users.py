@@ -2,7 +2,8 @@ import uuid
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pasteforge.models import User
+
+from pasteforge.models import User
 
 
 async def check_email_exists(db: AsyncSession, email: str) -> bool:

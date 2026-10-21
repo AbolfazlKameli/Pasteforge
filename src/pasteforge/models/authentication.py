@@ -4,7 +4,8 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
-from src.pasteforge.db.database import Base
+
+from pasteforge.db.database import Base
 
 hasher = PasswordHasher()
 
