@@ -1,6 +1,9 @@
 from datetime import datetime
+from typing import Self
 
-from pydantic import UUID4, BaseModel, EmailStr
+from pydantic import UUID4, BaseModel, EmailStr, Field, model_validator
+
+from pasteforge.schemas.validators import PasswordValidator
 
 
 class UserBase(BaseModel):
@@ -15,3 +18,16 @@ class UserOut(UserBase):
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
+
+
+class OTPSetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp_code: str = Field(min_length=6, max_length=6)
+    new_password: PasswordValidator
+    confirm_password: PasswordValidator
+
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        if self.new_password != self.confirm_password:
+            raise ValueError("Passwords don't match")
+        return self
