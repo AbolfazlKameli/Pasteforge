@@ -12,6 +12,7 @@ from jose import jwt, JWTError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies import db_dependency
 from src.pasteforge.core.config import configs
 from src.pasteforge.models import Otp, OtpBlacklist, User
 from src.pasteforge.repositories.auth import (
@@ -21,7 +22,7 @@ from src.pasteforge.repositories.auth import (
     get_user_blacklist_count,
     reset_otp_attempts
 )
-from src.pasteforge.repositories.users import get_user_by_email
+from src.pasteforge.repositories.users import get_user_by_email, get_user_by_id
 from src.pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
@@ -208,3 +209,13 @@ def decode_refresh_token(token: str):
         )
 
     return user_id
+
+
+async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(decode_access_token)]):
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed, invalid user.",
+        )
+    return user
