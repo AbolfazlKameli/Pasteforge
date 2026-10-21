@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, UTC
 
@@ -19,6 +20,7 @@ from src.pasteforge.repositories.auth import (
 from src.pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
+logger = logging.getLogger(__name__)
 
 
 async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | None, int]:
@@ -90,4 +92,6 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         send_otp_code_email.delay(email, otp_code)
 
     except IntegrityError:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.")
+        logger.warning("OTP persistence failed due to an integrity constraint")
+
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.") from None

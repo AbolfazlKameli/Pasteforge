@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, status, HTTPException
 
 from src.dependencies import db_dependency
@@ -8,6 +10,7 @@ from src.pasteforge.schemas.common import DataSchema, ErrorResponse
 from src.pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp
 
 router = APIRouter(prefix='/auth', tags=['auth'])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -47,6 +50,8 @@ async def request_otp_to_register(register_data: UserRegisterRequest, db: db_dep
         )
 
     await generate_and_send_otp(db, email)
+
+    logger.info("Registration OTP sent successfully")
 
     return {
         'data': {
