@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Response, status
@@ -14,7 +13,6 @@ from pasteforge.schemas.auth import (
     UserOTPResponse,
     UserRegisterRequest,
     UserRegisterResponse,
-    UserTokenResponse,
     auth_responses,
 )
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
