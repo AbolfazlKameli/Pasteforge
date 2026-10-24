@@ -1,9 +1,10 @@
+import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pasteforge.models import Otp, OtpBlacklist, RefreshTokenBlacklist
+from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, TokenPairStatuses
 
 
 async def get_active_blacklist_by_email(db: AsyncSession, email: str, current_time: datetime) -> OtpBlacklist | None:
@@ -40,12 +41,30 @@ async def reset_otp_attempts(db: AsyncSession, otp: Otp):
     return await db.execute(sa.update(Otp).where(Otp.id == otp.id).values(attempts=0))
 
 
-async def get_blacklist_by_refresh_token(db: AsyncSession, refresh_token: str) -> RefreshTokenBlacklist:
-    result = await db.execute(sa.select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.refresh == refresh_token))
+async def get_blacklist_by_token(db: AsyncSession, token: str) -> TokenObtainPair:
+    result = await db.execute(
+        sa.select(TokenObtainPair).where(
+            (TokenObtainPair.status == TokenPairStatuses.blacklisted)
+            & ((TokenObtainPair.refresh == token) | (TokenObtainPair.access == token))
+        )
+    )
     return result.scalar_one_or_none()
 
 
-async def create_token_blacklist(db: AsyncSession, refresh_token: str) -> None:
-    blacklist = RefreshTokenBlacklist(refresh=refresh_token)
-    db.add(blacklist)
+async def token_pair_exists(db: AsyncSession, token: str) -> bool:
+    return await db.scalar(
+        sa.select(sa.exists().where((TokenObtainPair.refresh == token) | (TokenObtainPair.access == token)))
+    )
+
+
+async def blacklist_token_pair(db: AsyncSession, refresh_token: str, user_id: uuid.UUID) -> None:
+    stmt = (
+        sa.update(TokenObtainPair)
+        .where(
+            (TokenObtainPair.owner_id == user_id)
+            & ((TokenObtainPair.refresh == refresh_token) | (TokenObtainPair.access == refresh_token))
+        )
+        .values(status=TokenPairStatuses.blacklisted)
+    )
+    await db.execute(stmt)
     await db.commit()
