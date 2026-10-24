@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from enum import Enum
 
@@ -74,7 +75,7 @@ class TokenObtainPair(Base):
         nullable=False,
     )
 
-    owner_id: Mapped[int] = mapped_column(sa.ForeignKey("users.id", ondelete="CASCADE"))
+    owner_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("users.id", ondelete="CASCADE"))
     owner: Mapped[User] = relationship()
 
     def __repr__(self):
