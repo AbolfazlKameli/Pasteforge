@@ -6,8 +6,7 @@ from typing import Annotated
 
 import sqlalchemy as sa
 from argon2 import PasswordHasher
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,33 +28,6 @@ from pasteforge.tasks.auth import send_otp_code_email
 
 hasher = PasswordHasher()
 logger = logging.getLogger(__name__)
-
-
-class JWTBearer(HTTPBearer):
-    def __init__(self, auto_error: bool = True):
-        super().__init__(auto_error=auto_error)
-
-    async def __call__(self, request: Request, db: db_dependency):
-        credentials: HTTPAuthorizationCredentials = await super().__call__(request)
-        if credentials:
-            if not credentials.scheme == "Bearer":
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme.")
-
-            try:
-                user_id = await decode_access_token(db, credentials.credentials)
-            except JWTError as e:
-                raise e
-
-            return user_id
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-
-oauth_schema = JWTBearer(auto_error=False)
 
 
 async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | None, int]:
@@ -232,7 +204,27 @@ async def decode_refresh_token(db: AsyncSession, token: str):
     return user_id
 
 
-async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(oauth_schema)]):
+async def jwt_cookie(db: db_dependency, access_token: Annotated[str, Cookie()]) -> uuid.UUID:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        user_id = await decode_access_token(db, access_token)
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+
+    return user_id
+
+
+async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(jwt_cookie)]):
     user = await get_user_by_id(db, user_id)
     if user is None:
         raise HTTPException(
