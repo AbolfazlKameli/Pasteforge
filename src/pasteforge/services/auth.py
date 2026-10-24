@@ -2,7 +2,7 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Literal
+from typing import Annotated
 
 import sqlalchemy as sa
 from argon2 import PasswordHasher
@@ -14,15 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies import db_dependency
 from pasteforge.core.config import configs
-from pasteforge.models import Otp, OtpBlacklist, User
+from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, User
 from pasteforge.repositories.auth import (
     create_otp,
-    create_token_blacklist,
     get_active_blacklist_by_email,
-    get_blacklist_by_refresh_token,
+    get_blacklist_by_token,
     get_otp,
     get_user_blacklist_count,
     reset_otp_attempts,
+    token_pair_exists,
 )
 from pasteforge.repositories.users import get_user_by_email, get_user_by_id
 from pasteforge.tasks.auth import send_otp_code_email
@@ -35,18 +35,18 @@ class JWTBearer(HTTPBearer):
     def __init__(self, auto_error: bool = True):
         super().__init__(auto_error=auto_error)
 
-    async def __call__(self, request: Request):
+    async def __call__(self, request: Request, db: db_dependency):
         credentials: HTTPAuthorizationCredentials = await super().__call__(request)
         if credentials:
             if not credentials.scheme == "Bearer":
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme.")
 
             try:
-                decode_access_token(credentials.credentials)
+                user_id = await decode_access_token(db, credentials.credentials)
             except JWTError as e:
                 raise e
 
-            return credentials.credentials
+            return user_id
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -147,19 +147,26 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     return user
 
 
-def create_jwt_token(
-    user_id: uuid.UUID,
-    email: str,
-    token_type: Literal["access", "refresh"],
-    expires_at: timedelta = timedelta(minutes=15),
-) -> str:
-    payload = {"user_id": str(user_id), "email": email, "token_type": token_type}
-    exp = datetime.now(UTC) + expires_at
-    payload.update({"exp": exp})
-    return jwt.encode(payload, configs.SECRET_KEY, algorithm="HS256")
+async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -> tuple[str, str]:
+    access_payload = {"user_id": str(user_id), "email": email}
+    access_exp = datetime.now(UTC) + timedelta(minutes=15)
+    access_payload.update({"exp": access_exp, "token_type": "access"})
+
+    refresh_payload = {"user_id": str(user_id), "email": email}
+    refresh_exp = datetime.now(UTC) + timedelta(hours=24)
+    refresh_payload.update({"exp": refresh_exp, "token_type": "refresh"})
+
+    access_token = jwt.encode(access_payload, configs.SECRET_KEY, algorithm="HS256")
+    refresh_token = jwt.encode(refresh_payload, configs.SECRET_KEY, algorithm="HS256")
+
+    token_pair = TokenObtainPair(refresh=refresh_token, access=access_token, owner_id=user_id)
+    db.add(token_pair)
+    await db.commit()
+
+    return access_token, refresh_token
 
 
-def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
+async def decode_access_token(db: AsyncSession, token: str):
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
         user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
@@ -176,6 +183,13 @@ def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed, invalid token type."
             )
 
+        blacklist = await get_blacklist_by_token(db, token)
+        if blacklist is not None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid access token.")
+
+        if not await token_pair_exists(db, token):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid access token.")
+
     except JWTError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -185,7 +199,7 @@ def decode_access_token(token: Annotated[str, Depends(oauth_schema)]):
     return user_id
 
 
-def decode_refresh_token(token: str):
+async def decode_refresh_token(db: AsyncSession, token: str):
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
         user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
@@ -202,6 +216,13 @@ def decode_refresh_token(token: str):
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed, invalid token type."
             )
 
+        blacklist = await get_blacklist_by_token(db, token)
+        if blacklist is not None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid refresh token.")
+
+        if not await token_pair_exists(db, token):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid refresh token.")
+
     except JWTError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -211,7 +232,7 @@ def decode_refresh_token(token: str):
     return user_id
 
 
-async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(decode_access_token)]):
+async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(oauth_schema)]):
     user = await get_user_by_id(db, user_id)
     if user is None:
         raise HTTPException(
@@ -229,14 +250,3 @@ async def get_active_user(user: Annotated[User, Depends(get_authenticated_user)]
 
 
 user_dependency = Annotated[User, Depends(get_active_user)]
-
-
-async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> bool:
-    blacklist = await get_blacklist_by_refresh_token(db, refresh_token)
-
-    if blacklist is not None:
-        return False
-
-    await create_token_blacklist(db, refresh_token)
-
-    return True
