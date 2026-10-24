@@ -6,7 +6,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Response, status
 
 from dependencies import db_dependency
 from pasteforge.core.config import configs
-from pasteforge.repositories.auth import get_otp
+from pasteforge.repositories.auth import blacklist_token_pair, get_otp
 from pasteforge.repositories.users import check_email_exists
 from pasteforge.schemas.auth import (
     OtpVerifyUserRegisterRequest,
@@ -20,9 +20,8 @@ from pasteforge.schemas.auth import (
 from pasteforge.schemas.common import DataSchema, ErrorResponse
 from pasteforge.services.auth import (
     authenticate_user,
-    blacklist_refresh_token,
     check_blacklist_for_user,
-    create_jwt_token,
+    create_token_pairs,
     decode_refresh_token,
     generate_and_send_otp,
     get_authenticated_user,
@@ -149,10 +148,11 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
             detail="Email or password incorrect. if you believe your account is deactivated, call support.",
         )
 
-    refresh_token = create_jwt_token(user.id, email, "refresh", timedelta(hours=24))
+    access, refresh = await create_token_pairs(db, user.id, email)
+
     response.set_cookie(
         key="refresh_token",
-        value=refresh_token,
+        value=refresh,
         httponly=True,
         secure=(not configs.DEBUG),
         path="/auth/refresh",
@@ -160,11 +160,9 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
         samesite="lax",
     )
 
-    access_token = create_jwt_token(user.id, email, "access")
-
     logger.info("User login successful")
 
-    return {"data": {"message": "User logged in Successfully.", "access_token": access_token}}
+    return {"data": {"message": "User logged in Successfully.", "access_token": access}}
 
 
 @router.post(
@@ -177,7 +175,7 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
     },
 )
 async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Cookie()], response: Response):
-    user_id = decode_refresh_token(refresh_token)
+    user_id = await decode_refresh_token(db, refresh_token)
     user = await get_authenticated_user(db, user_id)
 
     if user is None:
@@ -189,14 +187,13 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     user_id = user.id
     user_email = user.email
 
-    is_new = await blacklist_refresh_token(db, refresh_token)
-    if not is_new:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Blocked refresh token.")
+    await blacklist_token_pair(db, refresh_token, user_id)
 
-    refresh_token = create_jwt_token(user_id, user_email, "refresh", timedelta(hours=24))
+    access, refresh = await create_token_pairs(db, user_id, user_email)
+
     response.set_cookie(
         key="refresh_token",
-        value=refresh_token,
+        value=refresh,
         httponly=True,
         secure=(not configs.DEBUG),
         path="/auth/refresh",
@@ -204,8 +201,6 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
         samesite="lax",
     )
 
-    access_token = create_jwt_token(user_id, user_email, "access")
-
     logger.info("Authentication token refresh completed successfully")
 
-    return {"data": {"message": "Token Refreshed successfully.", "access_token": access_token}}
+    return {"data": {"message": "Token Refreshed successfully.", "access_token": access}}
