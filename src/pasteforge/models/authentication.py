@@ -67,8 +67,7 @@ class TokenObtainPair(Base):
     __tablename__ = "token_obtain_pair"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    refresh: Mapped[str] = mapped_column(nullable=False)
-    access: Mapped[str] = mapped_column(nullable=False)
+    sid: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), unique=True)
     status: Mapped[TokenPairStatuses] = mapped_column(
         sa.Enum(TokenPairStatuses, name="token_pair_statuses_enum"),
         default=TokenPairStatuses.active,
