@@ -60,6 +60,8 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
     if email is not None:
         await generate_and_send_otp(db, email)
 
+    await db.commit()
+
     return {"data": {"message": "Otp code sent to your new email address."}}
 
 
@@ -122,6 +124,8 @@ async def request_otp_to_reset_password(db: db_dependency, reset_data: ResetPass
         return {"data": {"message": "Otp code sent for reset password."}}
 
     await generate_and_send_otp(db, email)
+
+    await db.commit()
 
     logger.info("Password reset OTP request completed successfully")
 
