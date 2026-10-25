@@ -15,7 +15,6 @@ from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, User
 from pasteforge.repositories.auth import (
-    blacklist_token_pair_by_sid,
     create_otp,
     get_active_blacklist_by_email,
     get_blacklist_by_sid,
