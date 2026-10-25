@@ -17,7 +17,7 @@ from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, User
 from pasteforge.repositories.auth import (
     create_otp,
     get_active_blacklist_by_email,
-    get_blacklist_by_token,
+    get_blacklist_by_sid,
     get_otp,
     get_user_blacklist_count,
     reset_otp_attempts,
@@ -131,18 +131,20 @@ def raise_auth_error(token_type: str, detail: str, e: Exception | None = None) -
 
 
 async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -> tuple[str, str]:
-    access_payload = {"user_id": str(user_id), "email": email}
+    sid = uuid.uuid4()
+
+    access_payload = {"user_id": str(user_id), "email": email, "sid": str(sid)}
     access_exp = datetime.now(UTC) + timedelta(minutes=15)
     access_payload.update({"exp": access_exp, "token_type": "access"})
 
-    refresh_payload = {"user_id": str(user_id), "email": email}
+    refresh_payload = {"user_id": str(user_id), "email": email, "sid": str(sid)}
     refresh_exp = datetime.now(UTC) + timedelta(hours=24)
     refresh_payload.update({"exp": refresh_exp, "token_type": "refresh"})
 
     access_token = jwt.encode(access_payload, configs.SECRET_KEY, algorithm="HS256")
     refresh_token = jwt.encode(refresh_payload, configs.SECRET_KEY, algorithm="HS256")
 
-    token_pair = TokenObtainPair(refresh=refresh_token, access=access_token, owner_id=user_id)
+    token_pair = TokenObtainPair(sid=sid, owner_id=user_id)
     db.add(token_pair)
     await db.commit()
 
@@ -154,18 +156,19 @@ async def decode_access_token(db: AsyncSession, token: str) -> uuid.UUID:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
         user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
         token_type: str = payload.get("token_type")
+        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
     except (JWTError, ValueError, TypeError, KeyError) as e:
         raise_auth_error("access", "Invalid or expired access token.", e)
 
     if token_type != "access":
         raise_auth_error("access", "Invalid access token type.")
 
-    blacklist = await get_blacklist_by_token(db, token)
+    if not await token_pair_exists(db, sid):
+        raise_auth_error("access", "Access token is not associated with a valid session.")
+
+    blacklist = await get_blacklist_by_sid(db, sid)
     if blacklist is not None:
         raise_auth_error("access", "Access token has been revoked.")
-
-    if not await token_pair_exists(db, token):
-        raise_auth_error("access", "Access token is not associated with a valid session.")
 
     return user_id
 
@@ -173,22 +176,32 @@ async def decode_access_token(db: AsyncSession, token: str) -> uuid.UUID:
 async def decode_refresh_token(db: AsyncSession, token: str) -> uuid.UUID:
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload["user_id"])
+        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
         token_type: str = payload.get("token_type")
+        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
     except (JWTError, ValueError, TypeError, KeyError) as e:
         raise_auth_error("refresh", "Invalid or expired refresh token.", e)
 
     if token_type != "refresh":
         raise_auth_error("refresh", "Invalid refresh token type.")
 
-    blacklist = await get_blacklist_by_token(db, token)
+    if not await token_pair_exists(db, sid):
+        raise_auth_error("refresh", "Refresh token is not associated with a valid session.")
+
+    blacklist = await get_blacklist_by_sid(db, sid)
     if blacklist is not None:
         raise_auth_error("refresh", "Refresh token has been revoked.")
 
-    if not await token_pair_exists(db, token):
-        raise_auth_error("refresh", "Refresh token is not associated with a valid session.")
-
     return user_id
+
+
+def get_token_sid(token: str) -> uuid.UUID | None:
+    try:
+        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
+        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
+        return sid
+    except (JWTError, ValueError, TypeError, KeyError) as e:
+        raise_auth_error("refresh", "Invalid or expired refresh token.", e)
 
 
 async def jwt_cookie(db: db_dependency, access_token: Annotated[str | None, Cookie()] = None) -> uuid.UUID:
