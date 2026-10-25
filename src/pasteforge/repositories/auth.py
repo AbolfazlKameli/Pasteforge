@@ -41,30 +41,30 @@ async def reset_otp_attempts(db: AsyncSession, otp: Otp):
     return await db.execute(sa.update(Otp).where(Otp.id == otp.id).values(attempts=0))
 
 
-async def get_blacklist_by_token(db: AsyncSession, token: str) -> TokenObtainPair:
+async def get_blacklist_by_sid(db: AsyncSession, sid: uuid.UUID) -> TokenObtainPair:
     result = await db.execute(
         sa.select(TokenObtainPair).where(
-            (TokenObtainPair.status == TokenPairStatuses.blacklisted)
-            & ((TokenObtainPair.refresh == token) | (TokenObtainPair.access == token))
+            (TokenObtainPair.status == TokenPairStatuses.blacklisted) & (TokenObtainPair.sid == sid)
         )
     )
     return result.scalar_one_or_none()
 
 
-async def token_pair_exists(db: AsyncSession, token: str) -> bool:
-    return await db.scalar(
-        sa.select(sa.exists().where((TokenObtainPair.refresh == token) | (TokenObtainPair.access == token)))
+async def token_pair_exists(db: AsyncSession, sid: uuid.UUID) -> bool:
+    return await db.scalar(sa.select(sa.exists().where(TokenObtainPair.sid == sid)))
+
+
+async def blacklist_token_pair_by_sid(db: AsyncSession, sid: uuid.UUID) -> None:
+    await db.execute(
+        sa.update(TokenObtainPair).where(TokenObtainPair.sid == sid).values(status=TokenPairStatuses.blacklisted)
     )
+    await db.commit()
 
 
-async def blacklist_token_pair(db: AsyncSession, refresh_token: str, user_id: uuid.UUID) -> None:
-    stmt = (
+async def blacklist_token_pair_by_user_id(db: AsyncSession, user_id: uuid.UUID) -> None:
+    await db.execute(
         sa.update(TokenObtainPair)
-        .where(
-            (TokenObtainPair.owner_id == user_id)
-            & ((TokenObtainPair.refresh == refresh_token) | (TokenObtainPair.access == refresh_token))
-        )
+        .where(TokenObtainPair.owner_id == user_id)
         .values(status=TokenPairStatuses.blacklisted)
     )
-    await db.execute(stmt)
     await db.commit()

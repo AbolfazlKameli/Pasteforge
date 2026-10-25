@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException, status
 
 from dependencies import db_dependency
-from pasteforge.repositories.auth import get_otp
+from pasteforge.repositories.auth import blacklist_token_pair_by_user_id, get_otp
 from pasteforge.repositories.users import check_email_exists, get_user_by_email, update_user
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
@@ -74,6 +74,7 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
 async def verify_user_email(db: db_dependency, activation_request: UserActivationRequest, user: user_dependency):
     otp_code = activation_request.otp_code
     new_email = str(activation_request.new_email)
+    user_id = user.id
 
     otp_obj = await get_otp(db, new_email)
 
@@ -81,8 +82,9 @@ async def verify_user_email(db: db_dependency, activation_request: UserActivatio
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
 
     await update_user(db, user.id, email=new_email)
-
+    await blacklist_token_pair_by_user_id(db, user_id)
     await db.delete(otp_obj)
+
     await db.commit()
 
     logger.info("User email verification completed successfully")
@@ -151,6 +153,7 @@ async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest)
 
     user.set_password(validated_data.new_password.get_secret_value())
     db.add(user)
+    await blacklist_token_pair_by_user_id(db, user.id)
     await db.delete(otp_obj)
     await db.commit()
 
@@ -180,6 +183,7 @@ async def change_user_password(db: db_dependency, change_request: ChangePassword
 
     user.set_password(new_password)
     db.add(user)
+    await blacklist_token_pair_by_user_id(db, user.id)
     await db.commit()
 
     logger.info("User password changed successfully")

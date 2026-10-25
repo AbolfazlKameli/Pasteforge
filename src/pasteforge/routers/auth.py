@@ -5,7 +5,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Response, status
 
 from dependencies import db_dependency
 from pasteforge.core.config import configs
-from pasteforge.repositories.auth import blacklist_token_pair, get_otp
+from pasteforge.repositories.auth import blacklist_token_pair_by_sid, get_otp
 from pasteforge.repositories.users import check_email_exists
 from pasteforge.schemas.auth import (
     OtpVerifyUserRegisterRequest,
@@ -23,6 +23,7 @@ from pasteforge.services.auth import (
     decode_refresh_token,
     generate_and_send_otp,
     get_authenticated_user,
+    get_token_sid,
 )
 from pasteforge.services.users import register_user
 
@@ -195,7 +196,7 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     user_id = user.id
     user_email = user.email
 
-    await blacklist_token_pair(db, refresh_token, user_id)
+    await blacklist_token_pair_by_sid(db, get_token_sid(refresh_token))
 
     access, refresh = await create_token_pairs(db, user_id, user_email)
 
