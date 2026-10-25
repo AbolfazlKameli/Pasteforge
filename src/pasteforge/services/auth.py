@@ -90,8 +90,6 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         else:
             await refresh_otp_code(db, otp, otp_code, expires_at)
 
-        await db.commit()
-
         if blacklisted:
             message = "Too many requests. Your email has been added to the blacklist."
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
@@ -146,7 +144,7 @@ async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -
 
     token_pair = TokenObtainPair(sid=sid, owner_id=user_id)
     db.add(token_pair)
-    await db.commit()
+    await db.flush()
 
     return access_token, refresh_token
 
