@@ -67,6 +67,8 @@ async def request_otp_to_register(register_data: UserRegisterRequest, db: db_dep
 
     await generate_and_send_otp(db, email)
 
+    await db.commit()
+
     logger.info("Registration OTP sent successfully")
 
     return {
@@ -149,6 +151,8 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
 
     access, refresh = await create_token_pairs(db, user.id, email)
 
+    await db.commit()
+
     response.set_cookie(
         key="refresh_token",
         value=refresh,
@@ -199,6 +203,8 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
     await blacklist_token_pair_by_sid(db, get_token_sid(refresh_token))
 
     access, refresh = await create_token_pairs(db, user_id, user_email)
+
+    await db.commit()
 
     response.set_cookie(
         key="refresh_token",
