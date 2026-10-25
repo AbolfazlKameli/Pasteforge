@@ -119,6 +119,17 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     return user
 
 
+def raise_auth_error(token_type: str, detail: str, e: Exception | None = None) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={
+            "WWW-Authenticate": 'Bearer error="invalid_token"',
+            "X-Auth-Error": f"{token_type}_token_invalid",
+        },
+    ) from e
+
+
 async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -> tuple[str, str]:
     access_payload = {"user_id": str(user_id), "email": email}
     access_exp = datetime.now(UTC) + timedelta(minutes=15)
@@ -138,90 +149,53 @@ async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -
     return access_token, refresh_token
 
 
-async def decode_access_token(db: AsyncSession, token: str):
+async def decode_access_token(db: AsyncSession, token: str) -> uuid.UUID:
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
         user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
         token_type: str = payload.get("token_type")
+    except (JWTError, ValueError, TypeError, KeyError) as e:
+        raise_auth_error("access", "Invalid or expired access token.", e)
 
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, Invalid token.",
-            )
+    if token_type != "access":
+        raise_auth_error("access", "Invalid access token type.")
 
-        if token_type != "access":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed, invalid token type."
-            )
+    blacklist = await get_blacklist_by_token(db, token)
+    if blacklist is not None:
+        raise_auth_error("access", "Access token has been revoked.")
 
-        blacklist = await get_blacklist_by_token(db, token)
-        if blacklist is not None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid access token.")
-
-        if not await token_pair_exists(db, token):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid access token.")
-
-    except JWTError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid or expired token.",
-        ) from err
+    if not await token_pair_exists(db, token):
+        raise_auth_error("access", "Access token is not associated with a valid session.")
 
     return user_id
 
 
-async def decode_refresh_token(db: AsyncSession, token: str):
+async def decode_refresh_token(db: AsyncSession, token: str) -> uuid.UUID:
     try:
         payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
+        user_id: uuid.UUID = uuid.UUID(payload["user_id"])
         token_type: str = payload.get("token_type")
+    except (JWTError, ValueError, TypeError, KeyError) as e:
+        raise_auth_error("refresh", "Invalid or expired refresh token.", e)
 
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed, Invalid token.",
-            )
+    if token_type != "refresh":
+        raise_auth_error("refresh", "Invalid refresh token type.")
 
-        if token_type != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed, invalid token type."
-            )
+    blacklist = await get_blacklist_by_token(db, token)
+    if blacklist is not None:
+        raise_auth_error("refresh", "Refresh token has been revoked.")
 
-        blacklist = await get_blacklist_by_token(db, token)
-        if blacklist is not None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid refresh token.")
-
-        if not await token_pair_exists(db, token):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid refresh token.")
-
-    except JWTError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid or expired token.",
-        ) from err
+    if not await token_pair_exists(db, token):
+        raise_auth_error("refresh", "Refresh token is not associated with a valid session.")
 
     return user_id
 
 
-async def jwt_cookie(db: db_dependency, access_token: Annotated[str, Cookie()]) -> uuid.UUID:
+async def jwt_cookie(db: db_dependency, access_token: Annotated[str | None, Cookie()] = None) -> uuid.UUID:
     if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_auth_error("access", "Access token is missing.")
 
-    try:
-        user_id = await decode_access_token(db, access_token)
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
-
-    return user_id
+    return await decode_access_token(db, access_token)
 
 
 async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(jwt_cookie)]):
