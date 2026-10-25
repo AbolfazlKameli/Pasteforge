@@ -15,6 +15,7 @@ from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, User
 from pasteforge.repositories.auth import (
+    blacklist_token_pair_by_sid,
     create_otp,
     get_active_blacklist_by_email,
     get_blacklist_by_sid,
@@ -90,8 +91,6 @@ async def generate_and_send_otp(db: AsyncSession, email: str):
         else:
             await refresh_otp_code(db, otp, otp_code, expires_at)
 
-        await db.commit()
-
         if blacklisted:
             message = "Too many requests. Your email has been added to the blacklist."
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
@@ -146,7 +145,7 @@ async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -
 
     token_pair = TokenObtainPair(sid=sid, owner_id=user_id)
     db.add(token_pair)
-    await db.commit()
+    await db.flush()
 
     return access_token, refresh_token
 
