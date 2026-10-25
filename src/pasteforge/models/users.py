@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from pasteforge.core.config import configs
 from pasteforge.db.database import Base
@@ -21,6 +21,12 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=datetime.now(UTC))
+
+    pastes: Mapped[list["Paste"]] = relationship(  # noqa: F821
+        back_populates="owner",
+        cascade="all",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"User({self.id}, {self.email}, {self.password}, {self.is_active}, {self.created_at}, {self.updated_at})"
