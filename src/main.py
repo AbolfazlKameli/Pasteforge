@@ -8,7 +8,7 @@ from pasteforge.routers import auth_router, users_router
 app = FastAPI(
     title="PasteForge",
     summary="A lightweight Pastebin service focused on clean architecture, reliable data handling, and well-designed APIs.",  # noqa: E501
-    version="0.3.1",
+    version="0.3.2",
     contact={
         "name": "Abolfazl Kameli",
         "url": "https://github.com/abolfazlkameli",
