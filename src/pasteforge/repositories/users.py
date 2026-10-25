@@ -27,4 +27,4 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID):
 
 async def update_user(db: AsyncSession, user_id: uuid.UUID, **kwargs):
     await db.execute(sa.update(User).where(User.id == user_id).values(**kwargs))
-    await db.commit()
+    await db.flush()

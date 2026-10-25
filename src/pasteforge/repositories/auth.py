@@ -58,7 +58,7 @@ async def blacklist_token_pair_by_sid(db: AsyncSession, sid: uuid.UUID) -> None:
     await db.execute(
         sa.update(TokenObtainPair).where(TokenObtainPair.sid == sid).values(status=TokenPairStatuses.blacklisted)
     )
-    await db.commit()
+    await db.flush()
 
 
 async def blacklist_token_pair_by_user_id(db: AsyncSession, user_id: uuid.UUID) -> None:
@@ -67,4 +67,4 @@ async def blacklist_token_pair_by_user_id(db: AsyncSession, user_id: uuid.UUID) 
         .where(TokenObtainPair.owner_id == user_id)
         .values(status=TokenPairStatuses.blacklisted)
     )
-    await db.commit()
+    await db.flush()
