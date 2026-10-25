@@ -20,7 +20,7 @@ class User(Base):
     password: Mapped[str] = mapped_column(nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     pastes: Mapped[list["Paste"]] = relationship(  # noqa: F821
         back_populates="owner",
@@ -29,7 +29,7 @@ class User(Base):
     )
 
     def __repr__(self):
-        return f"User({self.id}, {self.email}, {self.password}, {self.is_active}, {self.created_at}, {self.updated_at})"
+        return f"User({self.id}, {self.email}, {self.is_active}, {self.created_at}, {self.updated_at})"
 
     def __str__(self):
         return f"{self.id} - {self.email} - {self.is_active}"
