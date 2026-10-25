@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Response, status
@@ -14,10 +13,9 @@ from pasteforge.schemas.auth import (
     UserOTPResponse,
     UserRegisterRequest,
     UserRegisterResponse,
-    UserTokenResponse,
     auth_responses,
 )
-from pasteforge.schemas.common import DataSchema, ErrorResponse
+from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
 from pasteforge.services.auth import (
     authenticate_user,
     check_blacklist_for_user,
@@ -130,7 +128,7 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
 @router.post(
     "/login",
     status_code=status.HTTP_200_OK,
-    response_model=DataSchema[UserTokenResponse],
+    response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
             "model": DataSchema[ErrorResponse],
@@ -154,21 +152,31 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
         key="refresh_token",
         value=refresh,
         httponly=True,
-        secure=(not configs.DEBUG),
+        secure=not configs.DEBUG,
         path="/auth/refresh",
-        expires=datetime.now(UTC) + timedelta(hours=24),
+        max_age=86400,
+        samesite="lax",
+    )
+
+    response.set_cookie(
+        key="access_token",
+        value=access,
+        httponly=True,
+        secure=not configs.DEBUG,
+        path="/",
+        max_age=900,
         samesite="lax",
     )
 
     logger.info("User login successful")
 
-    return {"data": {"message": "User logged in Successfully.", "access_token": access}}
+    return {"data": {"message": "User logged in Successfully."}}
 
 
 @router.post(
     "/refresh",
     status_code=status.HTTP_200_OK,
-    response_model=DataSchema[UserTokenResponse],
+    response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid refresh token."},
         **auth_responses,
@@ -195,12 +203,22 @@ async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Co
         key="refresh_token",
         value=refresh,
         httponly=True,
-        secure=(not configs.DEBUG),
+        secure=not configs.DEBUG,
         path="/auth/refresh",
-        expires=datetime.now(UTC) + timedelta(hours=24),
+        max_age=86400,
+        samesite="lax",
+    )
+
+    response.set_cookie(
+        key="access_token",
+        value=access,
+        httponly=True,
+        secure=not configs.DEBUG,
+        path="/",
+        max_age=900,
         samesite="lax",
     )
 
     logger.info("Authentication token refresh completed successfully")
 
-    return {"data": {"message": "Token Refreshed successfully.", "access_token": access}}
+    return {"data": {"message": "Token Refreshed successfully."}}
