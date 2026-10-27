@@ -615,6 +615,7 @@ dependencies = [
     { name = "pydantic", extra = ["email", "timezone"] },
     { name = "pydantic-settings" },
     { name = "python-jose" },
+    { name = "redis" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn" },
 ]
@@ -634,6 +635,7 @@ requires-dist = [
     { name = "pydantic", extras = ["email", "timezone"], specifier = ">=2.14.1" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "python-jose", specifier = ">=3.5.0" },
+    { name = "redis", specifier = ">=6.4.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.5" },
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
