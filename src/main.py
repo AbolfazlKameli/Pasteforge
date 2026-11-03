@@ -1,8 +1,6 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import FastAPI
 
-from pasteforge.api.v1.router import router as api_v1_router
+from pasteforge.core.exceptions import register_exception_handlers
 from pasteforge.core.loggers import setup_api_logging  # noqa
 
 app = FastAPI(
@@ -17,16 +15,8 @@ app = FastAPI(
     license_info={"name": "MIT License", "url": "https://github.com/AbolfazlKameli/Pasteforge/blob/main/LICENSE"},
 )
 
-app.include_router(api_v1_router)
 
-
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    return JSONResponse(
-        content={"data": {"errors": exc.detail}},
-        status_code=exc.status_code,
-        headers=exc.headers,
-    )
+register_exception_handlers(app)
 
 
 @app.get("/")
