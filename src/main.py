@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from pasteforge.api.v1.router import router as api_v1_router
 from pasteforge.core.exceptions import register_exception_handlers
 from pasteforge.core.loggers import setup_api_logging  # noqa
 
@@ -14,6 +15,8 @@ app = FastAPI(
     },
     license_info={"name": "MIT License", "url": "https://github.com/AbolfazlKameli/Pasteforge/blob/main/LICENSE"},
 )
+
+app.include_router(api_v1_router)
 
 
 register_exception_handlers(app)
