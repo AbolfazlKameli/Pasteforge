@@ -1,12 +1,12 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Response, status
 
-from dependencies import db_dependency
+from pasteforge.api.dependencies import auth_service_dep, token_service_dep, user_service_dep
+from pasteforge.api.dependencies.services import otp_service_dep
 from pasteforge.core.config import configs
-from pasteforge.repositories.auth import blacklist_token_pair_by_sid, get_otp
-from pasteforge.repositories.users import check_email_exists
+from pasteforge.core.exceptions import UserAlreadyExistsError
 from pasteforge.schemas.auth import (
     OtpVerifyUserRegisterRequest,
     UserLoginRequest,
@@ -16,19 +16,31 @@ from pasteforge.schemas.auth import (
     auth_responses,
 )
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
-from pasteforge.services.auth import (
-    authenticate_user,
-    check_blacklist_for_user,
-    create_token_pairs,
-    decode_refresh_token,
-    generate_and_send_otp,
-    get_authenticated_user,
-    get_token_sid,
-)
-from pasteforge.services.users import register_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
+
+
+def _set_auth_cookies(access: str, refresh: str, response: Response) -> None:
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh,
+        httponly=True,
+        secure=not configs.DEBUG,
+        path="/api/v1/auth/refresh",
+        max_age=86400,
+        samesite="lax",
+    )
+
+    response.set_cookie(
+        key="access_token",
+        value=access,
+        httponly=True,
+        secure=not configs.DEBUG,
+        path="/",
+        max_age=900,
+        samesite="lax",
+    )
 
 
 @router.post(
@@ -50,24 +62,17 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-async def request_otp_to_register(register_data: UserRegisterRequest, db: db_dependency):
+async def request_otp_to_register(
+        register_data: UserRegisterRequest, auth_service: auth_service_dep, user_service: user_service_dep
+):
     email = str(register_data.email)
 
-    message, throttle_wait = await check_blacklist_for_user(db, email)
-    if message is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message, headers={"Retry-After": str(throttle_wait)}
-        )
+    await auth_service.check_blacklist_for_user(email)
 
-    if await check_email_exists(db, email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already exists. if you believe your account is deactivated, call support.",
-        )
+    if await user_service.user_exists_with_email(email):
+        raise UserAlreadyExistsError()
 
-    await generate_and_send_otp(db, email)
-
-    await db.commit()
+    await auth_service.generate_and_send_otp(email)
 
     logger.info("Registration OTP sent successfully")
 
@@ -98,30 +103,17 @@ async def request_otp_to_register(register_data: UserRegisterRequest, db: db_dep
         },
     },
 )
-async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dependency):
+async def verify_otp_code(
+        request_data: OtpVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
+):
     otp_code = request_data.otp_code
     email = str(request_data.email)
-    otp_obj = await get_otp(db, email)
 
-    if otp_obj is None or (not otp_obj.verify_otp(otp_code)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
+    otp = await otp_service.validate_otp(email, otp_code)
 
-    if await check_email_exists(db, email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already taken.")
+    user = await user_service.create_user(email, request_data.password.get_secret_value())
 
-    try:
-        password = request_data.password.get_secret_value()
-        user = await register_user(db, password=password, email=email)
-    except (ValueError, RuntimeError):
-        logger.exception("User registration failed during OTP verification")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error."
-        ) from None
-
-    await db.delete(otp_obj)
-    await db.commit()
-
-    await db.refresh(user)
+    await otp_service.delete_otp(otp)
 
     logger.info("User registration completed successfully")
 
@@ -139,39 +131,17 @@ async def verify_otp_code(request_data: OtpVerifyUserRegisterRequest, db: db_dep
         }
     },
 )
-async def user_login(login_data: UserLoginRequest, db: db_dependency, response: Response):
+async def user_login(
+        login_data: UserLoginRequest, user_service: user_service_dep, token_service: token_service_dep,
+        response: Response
+):
     email = str(login_data.email)
-    user = await authenticate_user(db, email, login_data.password.get_secret_value())
+    user = await user_service.authenticate_user_by_email(email, login_data.password.get_secret_value())
 
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or password incorrect. if you believe your account is deactivated, call support.",
-        )
+    # noinspection PyTypeChecker
+    access, refresh = await token_service.create_token_pair(user.id, email)
 
-    access, refresh = await create_token_pairs(db, user.id, email)
-
-    await db.commit()
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh,
-        httponly=True,
-        secure=not configs.DEBUG,
-        path="/auth/refresh",
-        max_age=86400,
-        samesite="lax",
-    )
-
-    response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=not configs.DEBUG,
-        path="/",
-        max_age=900,
-        samesite="lax",
-    )
+    _set_auth_cookies(access, refresh, response)
 
     logger.info("User login successful")
 
@@ -187,44 +157,24 @@ async def user_login(login_data: UserLoginRequest, db: db_dependency, response: 
         **auth_responses,
     },
 )
-async def refresh_auth_token(db: db_dependency, refresh_token: Annotated[str, Cookie()], response: Response):
-    user_id = await decode_refresh_token(db, refresh_token)
-    user = await get_authenticated_user(db, user_id)
-
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token.")
-
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token.")
+async def refresh_auth_token(
+        token_service: token_service_dep,
+        user_service: user_service_dep,
+        refresh_token: Annotated[str, Cookie(alias="refresh_token")],
+        response: Response,
+):
+    user_id = await token_service.validate_jwt_token(refresh_token, "refresh")
+    user = await user_service.get_active_user_by_id(user_id)
 
     user_id = user.id
     user_email = user.email
 
-    await blacklist_token_pair_by_sid(db, get_token_sid(refresh_token))
+    await token_service.blacklist_token_pair_by_sid(token_service.get_token_sid(refresh_token, "refresh"))
 
-    access, refresh = await create_token_pairs(db, user_id, user_email)
+    # noinspection PyTypeChecker
+    access, refresh = await token_service.create_token_pair(user_id, user_email)
 
-    await db.commit()
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh,
-        httponly=True,
-        secure=not configs.DEBUG,
-        path="/auth/refresh",
-        max_age=86400,
-        samesite="lax",
-    )
-
-    response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=not configs.DEBUG,
-        path="/",
-        max_age=900,
-        samesite="lax",
-    )
+    _set_auth_cookies(access, refresh, response)
 
     logger.info("Authentication token refresh completed successfully")
 
