@@ -1,229 +1,59 @@
-import logging
-import secrets
-import uuid
-from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from datetime import UTC, datetime
 
-import sqlalchemy as sa
-from argon2 import PasswordHasher
-from fastapi import Cookie, Depends, HTTPException, status
-from jose import JWTError, jwt
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dependencies import db_dependency
 from pasteforge.core.config import configs
-from pasteforge.models import Otp, OtpBlacklist, TokenObtainPair, User
-from pasteforge.repositories.auth import (
-    create_otp,
-    get_active_blacklist_by_email,
-    get_blacklist_by_sid,
-    get_otp,
-    get_user_blacklist_count,
-    reset_otp_attempts,
-    token_pair_exists,
-)
-from pasteforge.repositories.users import get_user_by_email, get_user_by_id
+from pasteforge.core.exceptions import TooManyRequestsError
+from pasteforge.services import OtpBlacklistService, OtpService
 from pasteforge.tasks.auth import send_otp_code_email
 
-hasher = PasswordHasher()
-logger = logging.getLogger(__name__)
 
+class AuthService:
+    def __init__(self, db: AsyncSession):
+        self.otp_blacklist_service = OtpBlacklistService(db)
+        self.otp_service = OtpService(db)
+        self.db = db
 
-async def check_blacklist_for_user(db: AsyncSession, email: str) -> tuple[str | None, int]:
-    now = datetime.now(UTC)
+    async def check_blacklist_for_user(self, email: str) -> None:
+        blacklist = await self.otp_blacklist_service.get_active_blacklist_by_email(email)
 
-    blacklist = await get_active_blacklist_by_email(db, email, now)
+        if blacklist is None:
+            return
 
-    if blacklist is None:
-        return None, 0
+        if blacklist and blacklist.expires_at is None:
+            raise TooManyRequestsError(
+                "You have been permanently blocked. if you believe this is a mistake, please contact support."
+            )
 
-    if blacklist and blacklist.expires_at is None:
-        return "You have been permanently blocked. if you believe this is a mistake, please contact support.", 0
+        now = datetime.now(UTC)
+        throttle_wait = (blacklist.expires_at - now).total_seconds()
+        expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+        raise TooManyRequestsError(f"You have been blocked until {expiration_date_time}", int(throttle_wait))
 
-    throttle_wait = (blacklist.expires_at - now).total_seconds()
-    expiration_date_time = blacklist.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    return f"You have been blocked until {expiration_date_time}", int(throttle_wait)
+    async def handle_otp_blacklist(self, email: str):
+        now = datetime.now(UTC)
+        blacklist_count = await self.otp_blacklist_service.get_blacklist_count_by_email(email)
+        expires_at = None
+        blacklist_level = str(blacklist_count + 1)
 
+        expiration_levels = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME_LEVELS
+        expiration_times = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME
 
-async def refresh_otp_code(db: AsyncSession, otp: Otp, otp_code: str, expires_at: datetime):
-    hashed_otp = hasher.hash(otp_code)
-    stmt = (
-        sa.update(Otp)
-        .where(Otp.id == otp.id, Otp.attempts <= configs.OTP_SETTINGS.MAX_ATTEMPTS)
-        .values(hashed_code=hashed_otp, expires_at=expires_at, attempts=Otp.attempts + 1)
-    )
-    await db.execute(stmt)
+        if blacklist_level in expiration_levels:
+            expires_at = now + expiration_times[blacklist_level]
 
+        await self.otp_blacklist_service.create_blacklist(email, expires_at)
 
-async def handle_otp_blacklist(db: AsyncSession, email: str):
-    now = datetime.now(UTC)
-    blacklist_count = await get_user_blacklist_count(db, email)
-    expires_at = None
-    blacklist_level = str(blacklist_count + 1)
+    async def generate_and_send_otp(self, email: str) -> bool | None:
+        otp_code = self.otp_service.generate_otp_code()
+        otp_obj, is_new = await self.otp_service.get_or_create(email, otp_code)
 
-    expiration_levels = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME_LEVELS
-    expiration_times = configs.OTP_SETTINGS.BLACKLIST_EXPIRATION_TIME
-
-    if blacklist_level in expiration_levels:
-        expires_at = now + expiration_times[blacklist_level]
-
-    blacklist = OtpBlacklist(email=email, expires_at=expires_at)
-    db.add(blacklist)
-    await db.flush()
-
-
-async def generate_and_send_otp(db: AsyncSession, email: str):
-    try:
-        otp = await get_otp(db, email, True)
-
-        expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
-        otp_code = f"{secrets.randbelow(1_000_000):06d}"
-        blacklisted = False
-
-        if otp is None:
-            await create_otp(db, email, otp_code, expires_at)
-        elif otp.attempts >= configs.OTP_SETTINGS.MAX_ATTEMPTS:
-            await handle_otp_blacklist(db, email)
-            await reset_otp_attempts(db, otp)
-            blacklisted = True
-        else:
-            await refresh_otp_code(db, otp, otp_code, expires_at)
-
-        if blacklisted:
-            message = "Too many requests. Your email has been added to the blacklist."
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
+        if not is_new and otp_obj.attempts >= configs.OTP_SETTINGS.MAX_ATTEMPTS:
+            await self.handle_otp_blacklist(email)
+            await self.otp_service.reset_otp_attempts(otp_obj)
+            await self.db.commit()  # Avoiding rollback after rate limit exception
+            raise TooManyRequestsError("Too many requests. Your email been added to the blacklist.")
+        elif not is_new:
+            await self.otp_service.refresh_otp(otp_obj, otp_code)
 
         send_otp_code_email.delay(email, otp_code)
-
-    except IntegrityError:
-        logger.warning("OTP persistence failed due to an integrity constraint")
-
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="OTP already exists. Please retry.") from None
-
-
-async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
-    user = await get_user_by_email(db, email)
-
-    if user is None:
-        return None
-
-    if not user.is_active:
-        return None
-
-    if not user.verify_password(password):
-        return None
-
-    return user
-
-
-def raise_auth_error(token_type: str, detail: str, e: Exception | None = None) -> None:
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=detail,
-        headers={
-            "WWW-Authenticate": 'Bearer error="invalid_token"',
-            "X-Auth-Error": f"{token_type}_token_invalid",
-        },
-    ) from e
-
-
-async def create_token_pairs(db: AsyncSession, user_id: uuid.UUID, email: str) -> tuple[str, str]:
-    sid = uuid.uuid4()
-
-    access_payload = {"user_id": str(user_id), "email": email, "sid": str(sid)}
-    access_exp = datetime.now(UTC) + timedelta(minutes=15)
-    access_payload.update({"exp": access_exp, "token_type": "access"})
-
-    refresh_payload = {"user_id": str(user_id), "email": email, "sid": str(sid)}
-    refresh_exp = datetime.now(UTC) + timedelta(hours=24)
-    refresh_payload.update({"exp": refresh_exp, "token_type": "refresh"})
-
-    access_token = jwt.encode(access_payload, configs.SECRET_KEY, algorithm="HS256")
-    refresh_token = jwt.encode(refresh_payload, configs.SECRET_KEY, algorithm="HS256")
-
-    token_pair = TokenObtainPair(sid=sid, owner_id=user_id)
-    db.add(token_pair)
-    await db.flush()
-
-    return access_token, refresh_token
-
-
-async def decode_access_token(db: AsyncSession, token: str) -> uuid.UUID:
-    try:
-        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
-        token_type: str = payload.get("token_type")
-        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
-    except (JWTError, ValueError, TypeError, KeyError) as e:
-        raise_auth_error("access", "Invalid or expired access token.", e)
-
-    if token_type != "access":
-        raise_auth_error("access", "Invalid access token type.")
-
-    if not await token_pair_exists(db, sid):
-        raise_auth_error("access", "Access token is not associated with a valid session.")
-
-    blacklist = await get_blacklist_by_sid(db, sid)
-    if blacklist is not None:
-        raise_auth_error("access", "Access token has been revoked.")
-
-    return user_id
-
-
-async def decode_refresh_token(db: AsyncSession, token: str) -> uuid.UUID:
-    try:
-        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        user_id: uuid.UUID = uuid.UUID(payload.get("user_id"))
-        token_type: str = payload.get("token_type")
-        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
-    except (JWTError, ValueError, TypeError, KeyError) as e:
-        raise_auth_error("refresh", "Invalid or expired refresh token.", e)
-
-    if token_type != "refresh":
-        raise_auth_error("refresh", "Invalid refresh token type.")
-
-    if not await token_pair_exists(db, sid):
-        raise_auth_error("refresh", "Refresh token is not associated with a valid session.")
-
-    blacklist = await get_blacklist_by_sid(db, sid)
-    if blacklist is not None:
-        raise_auth_error("refresh", "Refresh token has been revoked.")
-
-    return user_id
-
-
-def get_token_sid(token: str) -> uuid.UUID | None:
-    try:
-        payload = jwt.decode(token, configs.SECRET_KEY, algorithms=["HS256"])
-        sid: uuid.UUID = uuid.UUID(payload.get("sid"))
-        return sid
-    except (JWTError, ValueError, TypeError, KeyError) as e:
-        raise_auth_error("refresh", "Invalid or expired refresh token.", e)
-
-
-async def jwt_cookie(db: db_dependency, access_token: Annotated[str | None, Cookie()] = None) -> uuid.UUID:
-    if not access_token:
-        raise_auth_error("access", "Access token is missing.")
-
-    return await decode_access_token(db, access_token)
-
-
-async def get_authenticated_user(db: db_dependency, user_id: Annotated[uuid.UUID, Depends(jwt_cookie)]):
-    user = await get_user_by_id(db, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed, invalid user.",
-        )
-    return user
-
-
-async def get_active_user(user: Annotated[User, Depends(get_authenticated_user)]):
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user account")
-
-    return user
-
-
-user_dependency = Annotated[User, Depends(get_active_user)]
