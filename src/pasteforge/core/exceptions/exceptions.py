@@ -35,3 +35,8 @@ class ForbiddenError(AppException):
 class UserAlreadyExistsError(AppException):
     def __init__(self, message: str = "User with this email already exists."):
         super().__init__(status_code=status.HTTP_429_TOO_MANY_REQUESTS, message=message)
+
+
+class NotFoundError(AppException):
+    def __init__(self, message: str = "Not found."):
+        super().__init__(status_code=status.HTTP_404_NOT_FOUND, message=message)

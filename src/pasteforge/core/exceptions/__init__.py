@@ -2,6 +2,7 @@ from pasteforge.core.exceptions.exceptions import (
     AuthenticationError,
     ForbiddenError,
     InvalidTokenError,
+    NotFoundError,
     TooManyRequestsError,
     UserAlreadyExistsError,
 )
@@ -13,5 +14,6 @@ __all__ = [
     "InvalidTokenError",
     "TooManyRequestsError",
     "UserAlreadyExistsError",
+    "NotFoundError",
     "register_exception_handlers",
 ]
