@@ -7,7 +7,7 @@ from pasteforge.core.config import configs
 from pasteforge.core.exceptions import ForbiddenError
 from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import Otp
-from pasteforge.repositories.otp import OtpRepository
+from pasteforge.repositories import OtpRepository
 
 
 class OtpService:

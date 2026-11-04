@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.models import OtpBlacklist
-from pasteforge.repositories.otp_blacklist import OtpBlacklistRepository
+from pasteforge.repositories import OtpBlacklistRepository
 
 
 class OtpBlacklistService:

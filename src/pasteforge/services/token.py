@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import InvalidTokenError
 from pasteforge.models import TokenObtainPair
-from pasteforge.repositories.token import TokenPairRepository
+from pasteforge.repositories import TokenPairRepository
 
 
 class TokenPairService:
