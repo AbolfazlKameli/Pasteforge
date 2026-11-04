@@ -16,7 +16,7 @@ async def jwt_cookie(access_token: Annotated[str, Cookie()], token_service: toke
 
 
 async def get_authenticated_user(
-        user_id: Annotated[uuid.UUID, Depends(jwt_cookie)], user_service: user_service_dep
+    user_id: Annotated[uuid.UUID, Depends(jwt_cookie)], user_service: user_service_dep
 ) -> User | None:
     user = await user_service.get_user_by_id(user_id)
     if user is None:
