@@ -3,10 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from dependencies import db_dependency
-from pasteforge.services import OtpService
-from pasteforge.services.auth import AuthService
-from pasteforge.services.token import TokenPairService
-from pasteforge.services.users import UserService
+from pasteforge.services import AuthService, OtpService, TokenPairService, UserService
 
 
 def get_user_service(db: db_dependency) -> UserService:

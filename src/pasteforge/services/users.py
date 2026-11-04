@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pasteforge.core.exceptions import AuthenticationError, UserAlreadyExistsError
 from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import User
-from pasteforge.repositories.users import UserRepository
+from pasteforge.repositories import UserRepository
 
 
 class UserService:
@@ -18,11 +18,11 @@ class UserService:
     async def get_user_by_email_for_update(self, email: str) -> User | None:
         return await self.user_repo.get_by_email(email, True)
 
-    async def user_exists_with_email(self, email: str) -> bool:
-        return await self.user_repo.is_email_exists(email)
-
     async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
         return await self.user_repo.get_by_id(user_id)
+
+    async def user_exists_with_email(self, email: str) -> bool:
+        return await self.user_repo.is_email_exists(email)
 
     async def create_user(self, email: str, password: str, **kwargs) -> User:
         if await self.user_repo.is_email_exists(email):
