@@ -43,6 +43,11 @@ def _set_auth_cookies(access: str, refresh: str, response: Response) -> None:
     )
 
 
+def _clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie("refresh_token", "/api/v1/auth/refresh")
+    response.delete_cookie("access_token", "/")
+
+
 @router.post(
     "/register",
     status_code=status.HTTP_202_ACCEPTED,
@@ -137,6 +142,23 @@ async def user_login(
     logger.info("User login successful")
 
     return {"data": {"message": "User logged in Successfully."}}
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[SuccessResponse],
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "model": DataSchema[ErrorResponse],
+            "description": "Error when invalid token provided.",
+        }
+    },
+)
+async def user_logout(token_service: token_service_dep, access_token: Annotated[str, Cookie()], response: Response):
+    await token_service.blacklist_token_pair_by_sid(token_service.get_token_sid(access_token, "access"))
+    _clear_auth_cookies(response)
+    return {"data": {"message": "User logged out successfully."}}
 
 
 @router.post(
