@@ -1,10 +1,10 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
-from dependencies import db_dependency
-from pasteforge.repositories.auth import get_otp
-from pasteforge.repositories.users import check_email_exists, get_user_by_email, update_user
+from pasteforge.api.dependencies import active_user_dep, auth_service_dep, user_service_dep
+from pasteforge.api.dependencies.services import otp_service_dep, token_service_dep
+from pasteforge.core.exceptions import NotFoundError
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
 from pasteforge.schemas.users import (
@@ -15,7 +15,6 @@ from pasteforge.schemas.users import (
     UserOut,
     UserUpdateRequest,
 )
-from pasteforge.services.auth import check_blacklist_for_user, generate_and_send_otp, user_dependency
 from pasteforge.tasks import send_notification_email
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -35,7 +34,7 @@ password_change_message = """
 @router.get(
     "/profile", status_code=status.HTTP_200_OK, response_model=DataSchema[UserOut], responses={**auth_responses}
 )
-async def get_user_profile(user: user_dependency):
+async def get_user_profile(user: active_user_dep):
     return {"data": user}
 
 
@@ -48,17 +47,20 @@ async def get_user_profile(user: user_dependency):
         **auth_responses,
     },
 )
-async def update_user_profile(db: db_dependency, update_request: UserUpdateRequest, user: user_dependency):
+async def update_user_profile(
+    update_request: UserUpdateRequest,
+    user: active_user_dep,
+    user_service: user_service_dep,
+    auth_service: auth_service_dep,
+):
     update_request_dict = update_request.model_dump(exclude_unset=True)
-    email = update_request_dict.pop("email", None)
+    email = update_request_dict.get("email")
 
-    if await check_email_exists(db, email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already taken.")
+    await auth_service.check_blacklist_for_user(email)
 
-    await update_user(db, user.id, **update_request_dict)
-
-    if email is not None:
-        await generate_and_send_otp(db, email)
+    email_changed = await user_service.update_user_data(user.id, **update_request_dict)
+    if email_changed:
+        await auth_service.generate_and_send_otp(email)
 
     return {"data": {"message": "Otp code sent to your new email address."}}
 
@@ -71,19 +73,21 @@ async def update_user_profile(db: db_dependency, update_request: UserUpdateReque
         status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid or expired OTP code."}
     },
 )
-async def verify_user_email(db: db_dependency, activation_request: UserActivationRequest, user: user_dependency):
+async def verify_user_email(
+    activation_request: UserActivationRequest,
+    user: active_user_dep,
+    otp_service: otp_service_dep,
+    user_service: user_service_dep,
+    token_service: token_service_dep,
+):
     otp_code = activation_request.otp_code
     new_email = str(activation_request.new_email)
+    user_id = user.id
 
-    otp_obj = await get_otp(db, new_email)
-
-    if otp_obj is None or not otp_obj.verify_otp(otp_code):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
-
-    await update_user(db, user.id, email=new_email)
-
-    await db.delete(otp_obj)
-    await db.commit()
+    otp = await otp_service.validate_otp(new_email, otp_code)
+    await user_service.update_user_email(user.id, email=new_email)
+    await token_service.blacklist_token_pair_by_user_id(user_id)
+    await otp_service.delete_otp(otp)
 
     logger.info("User email verification completed successfully")
 
@@ -91,9 +95,8 @@ async def verify_user_email(db: db_dependency, activation_request: UserActivatio
 
 
 @router.delete("/profile", status_code=status.HTTP_204_NO_CONTENT, responses={**auth_responses})
-async def delete_user_profile(db: db_dependency, user: user_dependency):
-    await db.delete(user)
-    await db.commit()
+async def delete_user_profile(user: active_user_dep, user_service: user_service_dep):
+    await user_service.delete_user(user)
 
 
 @router.post(
@@ -106,20 +109,18 @@ async def delete_user_profile(db: db_dependency, user: user_dependency):
         status.HTTP_429_TOO_MANY_REQUESTS: {"model": DataSchema[ErrorResponse], "description": "Too many requests."},
     },
 )
-async def request_otp_to_reset_password(db: db_dependency, reset_data: ResetPasswordRequest):
+async def request_otp_to_reset_password(
+    reset_data: ResetPasswordRequest, auth_service: auth_service_dep, user_service: user_service_dep
+):
     email = str(reset_data.email)
 
-    message, throttle_wait = await check_blacklist_for_user(db, email)
-    if message is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message, headers={"Retry-After": str(throttle_wait)}
-        )
+    await auth_service.check_blacklist_for_user(email)
 
-    user = await get_user_by_email(db, email)
+    user = await user_service.get_user_by_email(email)
     if user is None:
         return {"data": {"message": "Otp code sent for reset password."}}
 
-    await generate_and_send_otp(db, email)
+    await auth_service.generate_and_send_otp(email)
 
     logger.info("Password reset OTP request completed successfully")
 
@@ -135,24 +136,26 @@ async def request_otp_to_reset_password(db: db_dependency, reset_data: ResetPass
         status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid OTP code."},
     },
 )
-async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest):
+async def set_password(
+    validated_data: OTPSetPasswordRequest,
+    otp_service: otp_service_dep,
+    user_service: user_service_dep,
+    token_service: token_service_dep,
+):
     otp_code = validated_data.otp_code
     email = str(validated_data.email)
 
-    otp_obj = await get_otp(db, email)
+    otp = await otp_service.validate_otp(email, otp_code)
 
-    if otp_obj is None or not otp_obj.verify_otp(otp_code):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired OTP code.")
-
-    user = await get_user_by_email(db, email)
-
+    user = await user_service.get_user_by_email(email)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise NotFoundError()
 
-    user.set_password(validated_data.new_password.get_secret_value())
-    db.add(user)
-    await db.delete(otp_obj)
-    await db.commit()
+    await user_service.change_password(user, validated_data.new_password.get_secret_value())
+
+    await token_service.blacklist_token_pair_by_user_id(user.id)
+
+    await otp_service.delete_otp(otp)
 
     logger.info("User password reset completed successfully")
 
@@ -170,17 +173,18 @@ async def set_password(db: db_dependency, validated_data: OTPSetPasswordRequest)
         **auth_responses,
     },
 )
-async def change_user_password(db: db_dependency, change_request: ChangePasswordRequest, user: user_dependency):
+async def change_user_password(
+    change_request: ChangePasswordRequest,
+    user: active_user_dep,
+    token_service: token_service_dep,
+    user_service: user_service_dep,
+):
     email = user.email
     password = change_request.old_password.get_secret_value()
     new_password = change_request.new_password.get_secret_value()
 
-    if not user.verify_password(password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password.")
-
-    user.set_password(new_password)
-    db.add(user)
-    await db.commit()
+    await user_service.change_password(user, new_password, password)
+    await token_service.blacklist_token_pair_by_user_id(user.id)
 
     logger.info("User password changed successfully")
 
