@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import TooManyRequestsError
-from pasteforge.services import OtpBlacklistService, OtpService
+from pasteforge.services.otp import OtpService
+from pasteforge.services.otp_blacklist import OtpBlacklistService
 from pasteforge.tasks import send_otp_code_email
 
 
