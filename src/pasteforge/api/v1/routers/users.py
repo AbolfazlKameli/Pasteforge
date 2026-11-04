@@ -48,10 +48,10 @@ async def get_user_profile(user: active_user_dep):
     },
 )
 async def update_user_profile(
-        update_request: UserUpdateRequest,
-        user: active_user_dep,
-        user_service: user_service_dep,
-        auth_service: auth_service_dep,
+    update_request: UserUpdateRequest,
+    user: active_user_dep,
+    user_service: user_service_dep,
+    auth_service: auth_service_dep,
 ):
     update_request_dict = update_request.model_dump(exclude_unset=True)
     email = update_request_dict.get("email")
@@ -74,11 +74,11 @@ async def update_user_profile(
     },
 )
 async def verify_user_email(
-        activation_request: UserActivationRequest,
-        user: active_user_dep,
-        otp_service: otp_service_dep,
-        user_service: user_service_dep,
-        token_service: token_service_dep,
+    activation_request: UserActivationRequest,
+    user: active_user_dep,
+    otp_service: otp_service_dep,
+    user_service: user_service_dep,
+    token_service: token_service_dep,
 ):
     otp_code = activation_request.otp_code
     new_email = str(activation_request.new_email)
@@ -110,7 +110,7 @@ async def delete_user_profile(user: active_user_dep, user_service: user_service_
     },
 )
 async def request_otp_to_reset_password(
-        reset_data: ResetPasswordRequest, auth_service: auth_service_dep, user_service: user_service_dep
+    reset_data: ResetPasswordRequest, auth_service: auth_service_dep, user_service: user_service_dep
 ):
     email = str(reset_data.email)
 
@@ -137,10 +137,10 @@ async def request_otp_to_reset_password(
     },
 )
 async def set_password(
-        validated_data: OTPSetPasswordRequest,
-        otp_service: otp_service_dep,
-        user_service: user_service_dep,
-        token_service: token_service_dep,
+    validated_data: OTPSetPasswordRequest,
+    otp_service: otp_service_dep,
+    user_service: user_service_dep,
+    token_service: token_service_dep,
 ):
     otp_code = validated_data.otp_code
     email = str(validated_data.email)
@@ -174,10 +174,10 @@ async def set_password(
     },
 )
 async def change_user_password(
-        change_request: ChangePasswordRequest,
-        user: active_user_dep,
-        token_service: token_service_dep,
-        user_service: user_service_dep,
+    change_request: ChangePasswordRequest,
+    user: active_user_dep,
+    token_service: token_service_dep,
+    user_service: user_service_dep,
 ):
     email = user.email
     password = change_request.old_password.get_secret_value()
