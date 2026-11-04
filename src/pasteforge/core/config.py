@@ -43,6 +43,9 @@ class GlobalConfig(BaseConfig):
     DATABASE_MAX_OVERFLOW: int
     DATABASE_URL: str
 
+    REDIS_URL: str
+    REDIS_MAX_CONNECTIONS: int
+
     EMAIL_HOSTNAME: str
     EMAIL_PORT: int
     EMAIL_USE_TLS: bool

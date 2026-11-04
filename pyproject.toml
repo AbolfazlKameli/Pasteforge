@@ -1,6 +1,6 @@
 [project]
 name = "pasteforge"
-version = "0.3.0"
+version = "0.3.3"
 description = "A lightweight paste-sharing service built with FastAPI"
 authors = [
     { name = "Abolfazl Kameli", email = "abolfazlkameli0@gmail.com" }
@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.16.0",
     "pydantic[email,timezone]>=2.14.1",
     "python-jose>=3.5.0",
+    "redis>=6.4.0",
     "sqlalchemy[asyncio]>=2.1.5",
     "uvicorn>=0.54.0",
 ]
