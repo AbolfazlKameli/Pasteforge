@@ -59,7 +59,7 @@ def _set_auth_cookies(access: str, refresh: str, response: Response) -> None:
     },
 )
 async def request_otp_to_register(
-        register_data: UserRegisterRequest, auth_service: auth_service_dep, user_service: user_service_dep
+    register_data: UserRegisterRequest, auth_service: auth_service_dep, user_service: user_service_dep
 ):
     email = str(register_data.email)
 
@@ -96,7 +96,7 @@ async def request_otp_to_register(
     },
 )
 async def verify_otp_code(
-        request_data: OtpVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
+    request_data: OtpVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
 ):
     otp_code = request_data.otp_code
     email = str(request_data.email)
@@ -124,8 +124,7 @@ async def verify_otp_code(
     },
 )
 async def user_login(
-        login_data: UserLoginRequest, user_service: user_service_dep, token_service: token_service_dep,
-        response: Response
+    login_data: UserLoginRequest, user_service: user_service_dep, token_service: token_service_dep, response: Response
 ):
     email = str(login_data.email)
     user = await user_service.authenticate_user_by_email(email, login_data.password.get_secret_value())
@@ -150,10 +149,10 @@ async def user_login(
     },
 )
 async def refresh_auth_token(
-        token_service: token_service_dep,
-        user_service: user_service_dep,
-        refresh_token: Annotated[str, Cookie(alias="refresh_token")],
-        response: Response,
+    token_service: token_service_dep,
+    user_service: user_service_dep,
+    refresh_token: Annotated[str, Cookie(alias="refresh_token")],
+    response: Response,
 ):
     user_id = await token_service.validate_jwt_token(refresh_token, "refresh")
     user = await user_service.get_active_user_by_id(user_id)
