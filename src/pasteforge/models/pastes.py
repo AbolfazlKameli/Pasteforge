@@ -3,14 +3,9 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import sqlalchemy as sa
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from pasteforge.core.config import configs
 from pasteforge.db.database import Base
-
-pwd_hasher = PasswordHasher()
 
 
 class PastesAccessTypes(Enum):
@@ -48,14 +43,3 @@ class Paste(Base):
 
     def __str__(self):
         return f"{self.id} - {self.is_active}"
-
-    def verify_password(self, plain_password: str) -> bool:
-        if self.password.startswith(configs.UNUSABLE_PASSWORD_MARKER):
-            return False
-        try:
-            return pwd_hasher.verify(self.password, plain_password)
-        except VerifyMismatchError:
-            return False
-
-    def set_password(self, plain_password: str) -> None:
-        self.password = pwd_hasher.hash(plain_password)
