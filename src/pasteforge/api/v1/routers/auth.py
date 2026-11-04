@@ -52,10 +52,6 @@ def _set_auth_cookies(access: str, refresh: str, response: Response) -> None:
             "model": DataSchema[ErrorResponse],
             "description": "Error when email already exists.",
         },
-        status.HTTP_403_FORBIDDEN: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when user is blacklisted.",
-        },
         status.HTTP_429_TOO_MANY_REQUESTS: {
             "model": DataSchema[ErrorResponse],
             "description": "Error when too many requests occurs.",
@@ -96,10 +92,6 @@ async def request_otp_to_register(
         status.HTTP_403_FORBIDDEN: {
             "model": DataSchema[ErrorResponse],
             "description": "Error when OTP verification failed.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when something unexpected happened.",
         },
     },
 )
