@@ -1,6 +1,3 @@
-from collections.abc import Sequence
-from typing import Any
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -17,21 +14,6 @@ def _safe_serialize_value(value):
     if isinstance(value, dict):
         return {str(k): _safe_serialize_value(v) for k, v in value.items()}
     return str(value)
-
-
-def _sanitize_validation_errors(errors: Sequence[Any]) -> list[dict]:
-    sanitized = []
-    for error in errors:
-        safe_error = dict(error)
-        if "ctx" in safe_error and isinstance(safe_error["ctx"], dict):
-            safe_ctx = {}
-            for k, v in safe_error["ctx"].items():
-                safe_ctx[k] = _safe_serialize_value(v)
-            safe_error["ctx"] = safe_ctx
-        if "input" in safe_error:
-            safe_error["input"] = _safe_serialize_value(safe_error["input"])
-        sanitized.append(safe_error)
-    return sanitized
 
 
 def register_exception_handlers(app: FastAPI) -> None:
