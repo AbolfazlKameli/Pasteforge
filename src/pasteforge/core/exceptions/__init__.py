@@ -6,7 +6,7 @@ from pasteforge.core.exceptions.exceptions import (
     TooManyRequestsError,
     UserAlreadyExistsError,
 )
-from pasteforge.core.exceptions.handlers import register_exception_handlers
+from pasteforge.core.exceptions.handlers import register_exception_handlers, too_many_requests_error
 
 __all__ = [
     "AuthenticationError",
@@ -16,4 +16,5 @@ __all__ = [
     "UserAlreadyExistsError",
     "NotFoundError",
     "register_exception_handlers",
+    "too_many_requests_error",
 ]

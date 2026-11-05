@@ -1,9 +1,17 @@
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from redis_fastapi import RateLimitResult
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from pasteforge.core.exceptions.exceptions import AppException, InvalidTokenError, TooManyRequestsError
+
+
+async def too_many_requests_error(request: Request, result: RateLimitResult):
+    return JSONResponse(
+        content={"data": {"errors": f"Too many requests. retry after {result.retry_after} seconds."}},
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+    )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
