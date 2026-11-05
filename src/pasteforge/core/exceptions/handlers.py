@@ -6,16 +6,6 @@ from starlette.responses import JSONResponse
 from pasteforge.core.exceptions.exceptions import AppException, InvalidTokenError, TooManyRequestsError
 
 
-def _safe_serialize_value(value):
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, (list, tuple)):
-        return [_safe_serialize_value(item) for item in value]
-    if isinstance(value, dict):
-        return {str(k): _safe_serialize_value(v) for k, v in value.items()}
-    return str(value)
-
-
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
