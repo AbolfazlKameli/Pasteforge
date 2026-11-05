@@ -1,11 +1,12 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Response, status
+from fastapi import APIRouter, Cookie, Depends, Response, status
+from redis_fastapi import rate_limit
 
 from pasteforge.api.dependencies import auth_service_dep, otp_service_dep, token_service_dep, user_service_dep
 from pasteforge.core.config import configs
-from pasteforge.core.exceptions import UserAlreadyExistsError
+from pasteforge.core.exceptions import UserAlreadyExistsError, too_many_requests_error
 from pasteforge.core.security import generate_csrf_token
 from pasteforge.schemas.auth import (
     OtpVerifyUserRegisterRequest,
@@ -62,6 +63,7 @@ def _clear_auth_cookies(response: Response) -> None:
 @router.post(
     "/register",
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[UserOTPResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
@@ -99,6 +101,7 @@ async def request_otp_to_register(
 @router.post(
     "/register/verify",
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[UserRegisterResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
@@ -131,6 +134,7 @@ async def verify_otp_code(
 @router.post(
     "/login",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {
@@ -159,6 +163,7 @@ async def user_login(
 @router.post(
     "/logout",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_401_UNAUTHORIZED: {
@@ -176,6 +181,7 @@ async def user_logout(token_service: token_service_dep, access_token: Annotated[
 @router.post(
     "/refresh",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid refresh token."},
