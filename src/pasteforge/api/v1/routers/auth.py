@@ -3,8 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Response, status
 
-from pasteforge.api.dependencies import auth_service_dep, token_service_dep, user_service_dep
-from pasteforge.api.dependencies.services import otp_service_dep
+from pasteforge.api.dependencies import auth_service_dep, otp_service_dep, token_service_dep, user_service_dep
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import UserAlreadyExistsError
 from pasteforge.core.security import generate_csrf_token
