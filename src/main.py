@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from redis_fastapi import FastAPIRedis
 
 from pasteforge.api.middlewares import CSRFMiddleware
 from pasteforge.api.v1.router import router as api_v1_router
@@ -16,6 +17,8 @@ app = FastAPI(
     },
     license_info={"name": "MIT License", "url": "https://github.com/AbolfazlKameli/Pasteforge/blob/main/LICENSE"},
 )
+
+FastAPIRedis(app).lifespan().rate_limiting()
 
 app.include_router(api_v1_router)
 
