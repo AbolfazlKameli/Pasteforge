@@ -8,7 +8,7 @@ class AnonymousUsage(Base):
     __tablename__ = "anon_usage"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    hashed_ip: Mapped[str] = mapped_column(sa.String(length=64), nullable=False)
+    hashed_ip: Mapped[str] = mapped_column(sa.String(length=64), nullable=False, unique=True)
     counter: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=False, default=1)
 
     def __repr__(self):
