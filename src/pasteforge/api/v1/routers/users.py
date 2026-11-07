@@ -1,10 +1,11 @@
 import logging
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
+from redis_fastapi import rate_limit
 
 from pasteforge.api.dependencies import active_user_dep, auth_service_dep, user_service_dep
 from pasteforge.api.dependencies.services import otp_service_dep, token_service_dep
-from pasteforge.core.exceptions import NotFoundError
+from pasteforge.core.exceptions import NotFoundError, too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse, SuccessResponse
 from pasteforge.schemas.users import (
@@ -32,7 +33,11 @@ password_change_message = """
 
 
 @router.get(
-    "/profile", status_code=status.HTTP_200_OK, response_model=DataSchema[UserOut], responses={**auth_responses}
+    "/profile",
+    status_code=status.HTTP_200_OK,
+    response_model=DataSchema[UserOut],
+    responses={**auth_responses},
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
 )
 async def get_user_profile(user: active_user_dep):
     return {"data": user}
@@ -41,6 +46,7 @@ async def get_user_profile(user: active_user_dep):
 @router.put(
     "/profile",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid email or username"},
@@ -68,6 +74,7 @@ async def update_user_profile(
 @router.post(
     "/profile/email/verify",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "Invalid or expired OTP code."}
@@ -94,7 +101,12 @@ async def verify_user_email(
     return {"data": {"message": "Your account has been verified successfully."}}
 
 
-@router.delete("/profile", status_code=status.HTTP_204_NO_CONTENT, responses={**auth_responses})
+@router.delete(
+    "/profile",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
+    responses={**auth_responses},
+)
 async def delete_user_profile(user: active_user_dep, user_service: user_service_dep):
     await user_service.delete_user(user)
 
@@ -102,6 +114,7 @@ async def delete_user_profile(user: active_user_dep, user_service: user_service_
 @router.post(
     "/password/reset",
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid email address."},
@@ -130,6 +143,7 @@ async def request_otp_to_reset_password(
 @router.post(
     "/password/set",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid email address."},
@@ -167,6 +181,7 @@ async def set_password(
 @router.post(
     "/password/change",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("1/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Incorrect password."},
