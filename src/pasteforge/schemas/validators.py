@@ -3,33 +3,15 @@ from typing import Annotated
 from pydantic import AfterValidator, SecretStr
 
 # Password Validator
-SPECIAL_CHARS: set[str] = {
-    "$",
-    "@",
-    "#",
-    "%",
-    "!",
-    "^",
-    "&",
-    "*",
-    "(",
-    ")",
-    "-",
-    "_",
-    "+",
-    "=",
-    "{",
-    "}",
-    "[",
-    "]",
-}
-
+SPECIAL_CHARS: set[str] = {"$", "@", "#", "%", "!", "^", "&", "*", "(", ")", "-", "_", "+", "=", "{", "}", "[", "]"}
 MIN_LENGTH: int = 8
 MAX_LENGTH: int = 20
 INCLUDES_SPECIAL_CHARS: bool = True
 INCLUDES_NUMBERS: bool = True
 INCLUDES_LOWERCASE: bool = True
 INCLUDES_UPPERCASE: bool = True
+
+MAX_CONTENT_SIZE: int = 1_048_576
 
 
 def validate_password(v: SecretStr) -> SecretStr:
@@ -64,3 +46,16 @@ def validate_password(v: SecretStr) -> SecretStr:
 
 
 PasswordValidator = Annotated[SecretStr, AfterValidator(validate_password)]
+
+
+def get_content_size(v: str) -> int:
+    return len(v.encode("utf-8"))
+
+
+def validate_content_size(v: str) -> str:
+    if get_content_size(v) > MAX_CONTENT_SIZE:
+        raise ValueError(f"Content should be less than {MAX_CONTENT_SIZE} bytes.")
+    return v
+
+
+ContentSizeValidator = Annotated[str, AfterValidator(validate_content_size)]
