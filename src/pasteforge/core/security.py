@@ -47,8 +47,3 @@ def hash_ip(ip: str) -> str:
         msg=f"pasteforge:anonymous-ip:{normalized_ip}".encode(),
         digestmod=hashlib.sha256,
     ).hexdigest()
-
-
-def validate_hashed_ip(stored_hashed: str, ip: str) -> bool:
-    current_hash = hash_ip(ip)
-    return hmac.compare_digest(stored_hashed, current_hash)
