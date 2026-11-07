@@ -28,7 +28,7 @@ class Paste(Base):
     )
     is_active: Mapped[bool] = mapped_column(sa.Boolean(), default=True, nullable=False)
     password: Mapped[str | None] = mapped_column(sa.String(), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
