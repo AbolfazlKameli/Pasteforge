@@ -1,8 +1,8 @@
-"""create otp table
+"""002 add otp table
 
-Revision ID: 9ebcf6f56503
-Revises: 5a5c24106c48
-Create Date: 2026-10-19 20:45:12.043874
+Revision ID: 7dfbed573004
+Revises: eed2314cb90c
+Create Date: 2026-11-07 18:33:33.899025
 
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "9ebcf6f56503"
-down_revision: str | Sequence[str] | None = "5a5c24106c48"
+revision: str = "7dfbed573004"
+down_revision: str | Sequence[str] | None = "eed2314cb90c"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -22,11 +22,13 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
         "otp",
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("email", sa.String(length=255), nullable=False, unique=True),
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("hashed_code", sa.String(length=128), nullable=False),
-        sa.Column("attempts", sa.Integer, default=1, nullable=False),
+        sa.Column("attempts", sa.Integer(), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("email"),
     )
 
 
