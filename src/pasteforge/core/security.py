@@ -1,9 +1,13 @@
+import hashlib
+import hmac
+import ipaddress
 import uuid
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Request
 
+from pasteforge.core.config import configs
 from pasteforge.core.exceptions.exceptions import ForbiddenError
 
 hasher = PasswordHasher()
@@ -33,3 +37,13 @@ def validate_csrf_token(request: Request) -> None:
 
     if csrf_cookie != csrf_header:
         raise ForbiddenError(message="CSRF header does not match CSRF cookie.")
+
+
+def hash_ip(ip: str) -> str:
+    normalized_ip = ipaddress.ip_address(ip).compressed
+
+    return hmac.new(
+        key=configs.SECRET_KEY.encode(),
+        msg=f"pasteforge:anonymous-ip:{normalized_ip}".encode(),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
