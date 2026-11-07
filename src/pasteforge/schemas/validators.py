@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from pydantic import AfterValidator, SecretStr
@@ -59,3 +60,21 @@ def validate_content_size(v: str) -> str:
 
 
 ContentSizeValidator = Annotated[str, AfterValidator(validate_content_size)]
+
+
+def validate_expires_at(value: datetime) -> datetime:
+    now = datetime.now(UTC)
+
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("expires_at must be timezone-aware")
+
+    if value < now + timedelta(minutes=1):
+        raise ValueError("Expiration must be at least 1 minute from now")
+
+    if value > now + timedelta(hours=24):
+        raise ValueError("Expiration cannot exceed 24 hours")
+
+    return value
+
+
+ExpiresAtValidator = Annotated[datetime, AfterValidator(validate_expires_at)]
