@@ -3,6 +3,8 @@ from typing import Annotated
 
 from pydantic import AfterValidator, SecretStr
 
+from pasteforge.core.config import configs
+
 # Password Validator
 SPECIAL_CHARS: set[str] = {"$", "@", "#", "%", "!", "^", "&", "*", "(", ")", "-", "_", "+", "=", "{", "}", "[", "]"}
 MIN_LENGTH: int = 8
@@ -11,8 +13,6 @@ INCLUDES_SPECIAL_CHARS: bool = True
 INCLUDES_NUMBERS: bool = True
 INCLUDES_LOWERCASE: bool = True
 INCLUDES_UPPERCASE: bool = True
-
-MAX_CONTENT_SIZE: int = 1_048_576
 
 
 def validate_password(v: SecretStr) -> SecretStr:
@@ -59,8 +59,8 @@ def validate_content_size(v: str) -> str:
     if 0 >= size:
         raise ValueError("Content size should be at least 1 character")
 
-    if size > MAX_CONTENT_SIZE:
-        raise ValueError(f"Content should be less than {MAX_CONTENT_SIZE} bytes.")
+    if size > configs.MAX_CONTENT_SIZE:
+        raise ValueError(f"Content should be less than {configs.MAX_CONTENT_SIZE} bytes.")
 
     return v
 

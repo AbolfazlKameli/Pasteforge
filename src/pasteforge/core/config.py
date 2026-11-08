@@ -34,6 +34,7 @@ class GlobalConfig(BaseConfig):
     OTP_SETTINGS: OTPSettings = OTPSettings()
 
     ANON_USER_USAGE_LIMIT: int = 10
+    MAX_CONTENT_SIZE: int = 1_048_576
 
     LOG_LEVEL: LogLevel = "DEBUG"
     SQLALCHEMY_LOG_LEVEL: LogLevel = "DEBUG"
