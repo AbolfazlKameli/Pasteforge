@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Self
 
-from pydantic import UUID4, BaseModel, EmailStr, Field, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from pasteforge.schemas.validators import PasswordValidator
 
@@ -12,6 +12,8 @@ class UserBase(BaseModel):
 
 
 class UserOut(UserBase):
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
+
     id: UUID4
     updated_at: datetime
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import UUID4, BaseModel, computed_field
+from pydantic import UUID4, BaseModel, ConfigDict, computed_field
 
 from pasteforge.models import PastesAccessTypes
 from pasteforge.schemas.users import UserOut
@@ -27,6 +27,8 @@ class PasteIn(PasteBase):
 
 
 class PasteOut(PasteBase):
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
+
     id: UUID4
     size_bytes: int
     created_at: datetime
