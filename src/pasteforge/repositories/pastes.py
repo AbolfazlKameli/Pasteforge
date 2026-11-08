@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from pasteforge.models import Paste, PastesAccessTypes
 
@@ -9,6 +11,15 @@ from pasteforge.models import Paste, PastesAccessTypes
 class PastesRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_by_id(self, paste_id: uuid.UUID, access_types: list | None = None) -> Paste | None:
+        stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
+
+        if access_types:
+            stmt = stmt.where(Paste.access_type.in_(access_types))
+
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def create(
         self,
