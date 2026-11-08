@@ -4,6 +4,7 @@ from redis_fastapi import RateLimitResult
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
+from pasteforge.core.exceptions import AuthenticationError
 from pasteforge.core.exceptions.exceptions import AppException, InvalidTokenError, TooManyRequestsError
 
 
@@ -22,6 +23,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException):
         return JSONResponse(content={"data": {"errors": exc.message}}, status_code=exc.status_code)
+
+    @app.exception_handler(AuthenticationError)
+    async def authentication_error_exception_handler(request: Request, exc: InvalidTokenError):
+        headers = {"WWW-Authenticate": 'Bearer error="missing_access_token"'}
+        return JSONResponse(content={"data": {"errors": exc.message}}, status_code=exc.status_code, headers=headers)
 
     @app.exception_handler(InvalidTokenError)
     async def invalid_token_exception_handler(request: Request, exc: InvalidTokenError):
