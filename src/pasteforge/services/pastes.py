@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from redis_fastapi import CacheBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
@@ -8,16 +9,22 @@ from pasteforge.core.exceptions import AuthenticationError, NotFoundError, Valid
 from pasteforge.core.security import hash_value
 from pasteforge.models import Paste, PastesAccessTypes
 from pasteforge.repositories import PastesRepository
+from pasteforge.schemas.pastes import PasteOut
 
 
 class PasteService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, cache: CacheBackend):
         self.paste_repo = PastesRepository(db)
+        self.cache = cache
 
     async def get_accessible_paste_by_id(self, paste_id: uuid.UUID) -> Paste | None:
         return await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
 
-    async def get_authorized_paste(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> Paste | None:
+    async def get_authorized_paste(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
+        paste = await self.cache.get(f"paste:{paste_id}")
+        if paste is not None:
+            return PasteOut.model_validate_json(paste)
+
         paste = await self.get_accessible_paste_by_id(paste_id)
         if paste is None:
             raise NotFoundError()
@@ -29,7 +36,11 @@ class PasteService:
             if paste.owner_id != user_id:
                 raise NotFoundError()
 
-        return paste
+        if paste.access_type == PastesAccessTypes.public:
+            serialized = PasteOut.model_validate(paste).model_dump_json()
+            await self.cache.set(f"paste:{paste.id}", serialized, ttl=configs.PUBLIC_PASTE_CACHE_MAX_AGE)
+
+        return PasteOut.model_validate(paste)
 
     async def create_paste(
         self,
