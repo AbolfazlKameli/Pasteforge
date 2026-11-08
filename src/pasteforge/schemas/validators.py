@@ -54,8 +54,14 @@ def get_content_size(v: str) -> int:
 
 
 def validate_content_size(v: str) -> str:
-    if get_content_size(v) > MAX_CONTENT_SIZE:
+    size = get_content_size(v)
+
+    if 0 >= size:
+        raise ValueError("Content size should be at least 1 character")
+
+    if size > MAX_CONTENT_SIZE:
         raise ValueError(f"Content should be less than {MAX_CONTENT_SIZE} bytes.")
+
     return v
 
 
