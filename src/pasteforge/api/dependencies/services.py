@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from dependencies import db_dependency
+from pasteforge.api.dependencies.caches import PasteCacheDep
 from pasteforge.services import (
     AnonymousUsageService,
     AuthService,
@@ -33,8 +34,8 @@ def get_anon_usage_service(db: db_dependency) -> AnonymousUsageService:
     return AnonymousUsageService(db)
 
 
-def get_paste_service(db: db_dependency) -> PasteService:
-    return PasteService(db)
+def get_paste_service(db: db_dependency, cache: PasteCacheDep) -> PasteService:
+    return PasteService(db, cache)
 
 
 user_service_dep = Annotated[UserService, Depends(get_user_service)]
