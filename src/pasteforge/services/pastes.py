@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
-from pasteforge.core.exceptions import AuthenticationError, ValidationError
+from pasteforge.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from pasteforge.core.security import hash_value
 from pasteforge.models import Paste, PastesAccessTypes
 from pasteforge.repositories import PastesRepository
@@ -14,15 +14,32 @@ class PasteService:
     def __init__(self, db: AsyncSession):
         self.paste_repo = PastesRepository(db)
 
+    async def get_accessible_paste_by_id(self, paste_id: uuid.UUID) -> Paste | None:
+        return await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
+
+    async def get_authorized_paste(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> Paste | None:
+        paste = await self.get_accessible_paste_by_id(paste_id)
+        if paste is None:
+            raise NotFoundError()
+
+        if paste.access_type == PastesAccessTypes.private:
+            if user_id is None:
+                raise AuthenticationError("Unauthenticated users can only retrieve public pastes.")
+
+            if paste.owner_id != user_id:
+                raise NotFoundError()
+
+        return paste
+
     async def create_paste(
-            self,
-            content: str,
-            syntax: str,
-            size_bytes: int,
-            access_type: PastesAccessTypes,
-            expires_at: datetime,
-            password: str | None,
-            owner_id: uuid.UUID | None,
+        self,
+        content: str,
+        syntax: str,
+        size_bytes: int,
+        access_type: PastesAccessTypes,
+        expires_at: datetime,
+        password: str | None,
+        owner_id: uuid.UUID | None,
     ) -> Paste:
         if size_bytes <= 0:
             raise ValueError("Paste content must not be empty.")
