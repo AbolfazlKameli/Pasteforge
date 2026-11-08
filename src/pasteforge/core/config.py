@@ -36,6 +36,9 @@ class GlobalConfig(BaseConfig):
     ANON_USER_USAGE_LIMIT: int = 10
     MAX_CONTENT_SIZE: int = 1_048_576
 
+    PUBLIC_PASTE_CACHE_MAX_AGE: int = 300
+    CACHE_GROUP_PASTES: str = "pastes"
+
     LOG_LEVEL: LogLevel = "DEBUG"
     SQLALCHEMY_LOG_LEVEL: LogLevel = "DEBUG"
     LOG_DIR: Path = Path("logs")
