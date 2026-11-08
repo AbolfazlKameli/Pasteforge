@@ -16,9 +16,9 @@ class PasteBase(BaseModel):
 
 class PasteIn(PasteBase):
     content: ContentSizeValidator
-    password: PasswordValidator | None
+    password: PasswordValidator | None = None
     access_type: PastesAccessTypes
-    expires_at: ExpiresAtValidator
+    expires_at: ExpiresAtValidator | None = None
 
     @computed_field
     @property
@@ -31,4 +31,4 @@ class PasteOut(PasteBase):
     size_bytes: int
     created_at: datetime
     updated_at: datetime
-    owner: UserOut
+    owner: UserOut | None
