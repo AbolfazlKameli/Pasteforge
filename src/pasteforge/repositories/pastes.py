@@ -3,7 +3,7 @@ from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 
 from pasteforge.models import Paste, PastesAccessTypes
 
@@ -13,12 +13,15 @@ class PastesRepository:
         self.db = db
 
     async def get_by_id(
-        self, paste_id: uuid.UUID, access_types: list | None = None, for_update: bool = False
+        self, paste_id: uuid.UUID, access_types: list | None = None, for_update: bool = False, active_only: bool = True
     ) -> Paste | None:
-        stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
+        stmt = sa.select(Paste).where(Paste.id == paste_id).options(selectinload(Paste.owner))
 
         if access_types:
             stmt = stmt.where(Paste.access_type.in_(access_types))
+
+        if active_only:
+            stmt = stmt.where(Paste.is_active)
 
         if for_update:
             stmt = stmt.with_for_update()
