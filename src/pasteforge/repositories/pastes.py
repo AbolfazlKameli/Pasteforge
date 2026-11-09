@@ -12,11 +12,16 @@ class PastesRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, paste_id: uuid.UUID, access_types: list | None = None) -> Paste | None:
+    async def get_by_id(
+            self, paste_id: uuid.UUID, access_types: list | None = None, for_update: bool = False
+    ) -> Paste | None:
         stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
 
         if access_types:
             stmt = stmt.where(Paste.access_type.in_(access_types))
+
+        if for_update:
+            stmt = stmt.with_for_update()
 
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
