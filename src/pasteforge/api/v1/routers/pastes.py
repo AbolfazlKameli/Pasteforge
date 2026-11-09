@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request, status
 from redis_fastapi import rate_limit
 
-from pasteforge.api.dependencies import anon_usage_service_dep, optional_user_dep, paste_service_dep
+from pasteforge.api.dependencies import active_user_dep, anon_usage_service_dep, optional_user_dep, paste_service_dep
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
@@ -41,12 +41,12 @@ async def create_paste(
 
 @router.get(
     "/{paste_id}",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit("10/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[PasteOut],
     responses={
         **auth_responses,
-        status.HTTP_404_NOT_FOUND: {"model": DataSchema[ErrorResponse], "description": "Pate not found."},
+        status.HTTP_404_NOT_FOUND: {"model": DataSchema[ErrorResponse], "description": "Paste not found."},
     },
 )
 async def retrieve_paste(paste_id: uuid.UUID, paste_service: paste_service_dep, user: optional_user_dep):
