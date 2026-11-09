@@ -13,7 +13,7 @@ class PastesRepository:
         self.db = db
 
     async def get_by_id(
-            self, paste_id: uuid.UUID, access_types: list | None = None, for_update: bool = False
+        self, paste_id: uuid.UUID, access_types: list | None = None, for_update: bool = False
     ) -> Paste | None:
         stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
 
@@ -45,6 +45,9 @@ class PastesRepository:
             password=password,
             owner_id=owner_id,
         )
+        return await self.save_paste(paste)
+
+    async def save_paste(self, paste: Paste) -> Paste:
         self.db.add(paste)
         await self.db.flush()
         await self.db.refresh(paste)
