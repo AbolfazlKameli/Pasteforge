@@ -3,11 +3,11 @@ import uuid
 from fastapi import APIRouter, Depends, Request, status
 from redis_fastapi import rate_limit
 
-from pasteforge.api.dependencies import active_user_dep, anon_usage_service_dep, optional_user_dep, paste_service_dep
+from pasteforge.api.dependencies import anon_usage_service_dep, optional_user_dep, paste_service_dep
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
-from pasteforge.schemas.pastes import PasteIn, PasteOut
+from pasteforge.schemas.pastes import PasteIn, PasteOut, ProtectedPasteRequest
 
 router = APIRouter(prefix="/pastes", tags=["pastes"])
 
@@ -51,4 +51,18 @@ async def create_paste(
 )
 async def retrieve_paste(paste_id: uuid.UUID, paste_service: paste_service_dep, user: optional_user_dep):
     paste = await paste_service.get_authorized_paste_by_id(paste_id, user.id if user else None)
+    return {"data": paste}
+
+
+@router.post(
+    "/{paste_id}/secret",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("10/minute", on_limit_exceeded=too_many_requests_error))],
+    response_model=DataSchema[PasteOut],
+    responses={status.HTTP_404_NOT_FOUND: {"model": DataSchema[ErrorResponse], "description": "Paste not found."}},
+)
+async def retrieve_password_protected_paste(
+    paste_id: uuid.UUID, retrieve_request: ProtectedPasteRequest, paste_service: paste_service_dep
+):
+    paste = await paste_service.get_protected_paste_by_id(paste_id, retrieve_request.password.get_secret_value())
     return {"data": paste}

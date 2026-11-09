@@ -34,3 +34,7 @@ class PasteOut(PasteBase):
     created_at: datetime
     updated_at: datetime
     owner: UserOut | None
+
+
+class ProtectedPasteRequest(BaseModel):
+    password: PasswordValidator

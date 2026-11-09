@@ -5,8 +5,8 @@ from redis_fastapi import CacheBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
-from pasteforge.core.exceptions import AuthenticationError, NotFoundError, ValidationError
-from pasteforge.core.security import hash_value
+from pasteforge.core.exceptions import AuthenticationError, ForbiddenError, NotFoundError, ValidationError
+from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import Paste, PastesAccessTypes
 from pasteforge.repositories import PastesRepository
 from pasteforge.schemas.pastes import PasteOut
@@ -38,6 +38,17 @@ class PasteService:
             await self.cache.set(f"paste:{paste.id}", serialized, ttl=configs.PUBLIC_PASTE_CACHE_MAX_AGE)
 
         return PasteOut.model_validate(paste)
+
+    async def get_protected_paste_by_id(self, paste_id: uuid.UUID, password: str):
+        paste = await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.password_protected])
+
+        if paste is None:
+            raise NotFoundError()
+
+        if not validate_value(paste.password, password):
+            raise ForbiddenError("Incorrect password.")
+
+        return paste
 
     async def create_paste(
         self,
