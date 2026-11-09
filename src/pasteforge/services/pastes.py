@@ -17,15 +17,12 @@ class PasteService:
         self.paste_repo = PastesRepository(db)
         self.cache = cache
 
-    async def get_accessible_paste_by_id(self, paste_id: uuid.UUID) -> Paste | None:
-        return await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
-
-    async def get_authorized_paste(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
+    async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
         paste = await self.cache.get(f"paste:{paste_id}")
         if paste is not None:
             return PasteOut.model_validate_json(paste)
 
-        paste = await self.get_accessible_paste_by_id(paste_id)
+        paste = await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
         if paste is None:
             raise NotFoundError()
 

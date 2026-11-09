@@ -50,5 +50,5 @@ async def create_paste(
     },
 )
 async def retrieve_paste(paste_id: uuid.UUID, paste_service: paste_service_dep, user: optional_user_dep):
-    paste = await paste_service.get_authorized_paste(paste_id, user.id if user else None)
+    paste = await paste_service.get_authorized_paste_by_id(paste_id, user.id if user else None)
     return {"data": paste}
