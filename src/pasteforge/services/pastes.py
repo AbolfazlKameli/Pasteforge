@@ -17,21 +17,37 @@ class PasteService:
         self.paste_repo = PastesRepository(db)
         self.cache = cache
 
+    @staticmethod
+    def check_ownership(paste: Paste, user_id: uuid.UUID) -> None:
+        if paste.owner_id != user_id:
+            raise NotFoundError()
+
+    @staticmethod
+    def validate_paste_password(paste: Paste, password: str) -> None:
+        # noinspection PyTypeChecker
+        if not validate_value(paste.password, password):
+            raise ForbiddenError("Incorrect password.")
+
+    async def get_paste_by_id(
+        self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
+    ) -> Paste | None:
+        paste = await self.paste_repo.get_by_id(paste_id, access_type, for_update)
+        if paste is None:
+            raise NotFoundError()
+        return paste
+
     async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
         paste = await self.cache.get(f"paste:{paste_id}")
         if paste is not None:
             return PasteOut.model_validate_json(paste)
 
-        paste = await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
-        if paste is None:
-            raise NotFoundError()
+        paste = await self.get_paste_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
 
         if paste.access_type == PastesAccessTypes.private:
             if user_id is None:
                 raise AuthenticationError("Unauthenticated users can only retrieve public pastes.")
 
-            if paste.owner_id != user_id:
-                raise NotFoundError()
+            self.check_ownership(paste, user_id)
 
         if paste.access_type == PastesAccessTypes.public:
             serialized = PasteOut.model_validate(paste).model_dump_json()
@@ -40,13 +56,9 @@ class PasteService:
         return PasteOut.model_validate(paste)
 
     async def get_protected_paste_by_id(self, paste_id: uuid.UUID, password: str):
-        paste = await self.paste_repo.get_by_id(paste_id, [PastesAccessTypes.password_protected])
+        paste = await self.get_paste_by_id(paste_id, [PastesAccessTypes.password_protected])
 
-        if paste is None:
-            raise NotFoundError()
-
-        if not validate_value(paste.password, password):
-            raise ForbiddenError("Incorrect password.")
+        self.validate_paste_password(paste, password)
 
         return paste
 
