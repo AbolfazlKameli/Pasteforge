@@ -28,10 +28,10 @@ class PasteService:
         if not validate_value(paste.password, password):
             raise ForbiddenError("Incorrect password.")
 
-    async def get_paste_by_id(
+    async def get_unexpired_paste_by_id(
         self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
     ) -> Paste | None:
-        paste = await self.paste_repo.get_by_id(paste_id, access_type, for_update)
+        paste = await self.paste_repo.get_unexpired_by_id(paste_id, access_type, for_update)
         if paste is None:
             raise NotFoundError()
         return paste
@@ -39,9 +39,16 @@ class PasteService:
     async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
         paste = await self.cache.get(f"paste:{paste_id}")
         if paste is not None:
-            return PasteOut.model_validate_json(paste)
+            now = datetime.now(UTC)
+            paste = PasteOut.model_validate_json(paste)
 
-        paste = await self.get_paste_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
+            if paste.expires_at < now:
+                await self.cache.delete(f"paste:{paste_id}")
+                raise NotFoundError()
+
+            return paste
+
+        paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
 
         if paste.access_type == PastesAccessTypes.private:
             if user_id is None:
@@ -56,10 +63,8 @@ class PasteService:
         return PasteOut.model_validate(paste)
 
     async def get_protected_paste_by_id(self, paste_id: uuid.UUID, password: str):
-        paste = await self.get_paste_by_id(paste_id, [PastesAccessTypes.password_protected])
-
+        paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.password_protected])
         self.validate_paste_password(paste, password)
-
         return paste
 
     async def create_paste(
