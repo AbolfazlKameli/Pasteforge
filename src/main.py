@@ -18,7 +18,7 @@ app = FastAPI(
     license_info={"name": "MIT License", "url": "https://github.com/AbolfazlKameli/Pasteforge/blob/main/LICENSE"},
 )
 
-FastAPIRedis(app).lifespan().rate_limiting()
+FastAPIRedis(app).lifespan().rate_limiting().caching()
 
 app.include_router(api_v1_router)
 

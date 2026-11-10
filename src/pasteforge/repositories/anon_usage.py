@@ -9,7 +9,7 @@ class AnonymousUsageRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_remaining_usage(self, hashed_ip: str) -> int:
+    async def get_paste_usage(self, hashed_ip: str) -> int:
         stmt = (
             insert(AnonymousUsage)
             .values(hashed_ip=hashed_ip, counter=1)
