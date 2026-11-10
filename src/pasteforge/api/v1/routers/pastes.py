@@ -7,7 +7,14 @@ from pasteforge.api.dependencies import active_user_dep, anon_usage_service_dep,
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
-from pasteforge.schemas.pastes import PasteExpiryRequest, PasteIn, PasteOut, PasteUpdateRequest, ProtectedPasteRequest
+from pasteforge.schemas.pastes import (
+    PasteDeleteRequest,
+    PasteExpiryRequest,
+    PasteIn,
+    PasteOut,
+    PasteUpdateRequest,
+    ProtectedPasteRequest,
+)
 
 router = APIRouter(prefix="/pastes", tags=["pastes"])
 
@@ -114,3 +121,19 @@ async def update_paste_expiration(
     paste = await paste_service.update_manageable_paste_expiration(paste_id, user.id, password, expires_at)
 
     return {"data": paste}
+
+
+@router.delete(
+    "/{paste_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
+    responses={
+        **auth_responses,
+        status.HTTP_404_NOT_FOUND: {"model": DataSchema[ErrorResponse], "desciprtion": "Paste not found."},
+    },
+)
+async def delete_paste(
+        paste_id: uuid.UUID, delete_request: PasteDeleteRequest, user: active_user_dep, paste_service: paste_service_dep
+):
+    password = delete_request.password.get_secret_value() if delete_request.password else None
+    await paste_service.delete_paste_by_id(paste_id, user.id, password)
