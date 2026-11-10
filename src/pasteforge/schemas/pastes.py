@@ -38,3 +38,8 @@ class PasteOut(PasteBase):
 
 class ProtectedPasteRequest(BaseModel):
     password: PasswordValidator
+
+
+class PasteUpdateRequest(PasteIn):
+    expires_at: ExpiresAtValidator
+    new_password: PasswordValidator | None = None
