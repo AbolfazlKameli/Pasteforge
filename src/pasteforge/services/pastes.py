@@ -112,3 +112,31 @@ class PasteService:
         return await self.paste_repo.create(
             content, syntax, size_bytes, access_type, expires_at, hashed_password, owner_id
         )
+
+    async def update_paste(
+        self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, new_password: str | None, **update_data
+    ) -> Paste:
+        paste = await self.get_unexpired_paste_by_id(paste_id, [ac for ac in PastesAccessTypes], for_update=True)
+
+        self.check_ownership(paste, user_id)
+
+        if paste.access_type == PastesAccessTypes.password_protected:
+            if password is None:
+                raise ValidationError("A password is required for password-protected pastes.")
+
+            self.validate_paste_password(paste, password)
+
+        access_type = update_data.get("access_type")
+
+        if access_type == PastesAccessTypes.password_protected:
+            if paste.access_type != PastesAccessTypes.password_protected:
+                if new_password is None:
+                    raise ValidationError("A new password is required to protect a paste.")
+
+            if new_password is not None:
+                update_data["password"] = hash_value(new_password)
+
+        elif access_type is not None:
+            update_data["password"] = None
+
+        return await self.paste_repo.update(paste, **update_data)
