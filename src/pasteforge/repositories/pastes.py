@@ -82,6 +82,10 @@ class PastesRepository:
 
         return await self.save_paste(paste)
 
+    async def delete(self, paste: Paste) -> None:
+        await self.db.delete(paste)
+        await self.db.flush()
+
     async def save_paste(self, paste: Paste) -> Paste:
         self.db.add(paste)
         await self.db.flush()
