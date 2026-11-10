@@ -33,6 +33,13 @@ class GlobalConfig(BaseConfig):
 
     OTP_SETTINGS: OTPSettings = OTPSettings()
 
+    ANON_USER_USAGE_LIMIT: int = 10
+    MAX_CONTENT_SIZE: int = 1_048_576
+
+    PUBLIC_PASTE_CACHE_MAX_AGE: int = 300
+    PASTE_MANAGEMENT_TIME_WINDOW: timedelta = timedelta(hours=24)
+    CACHE_GROUP_PASTES: str = "pastes"
+
     LOG_LEVEL: LogLevel = "DEBUG"
     SQLALCHEMY_LOG_LEVEL: LogLevel = "DEBUG"
     LOG_DIR: Path = Path("logs")
