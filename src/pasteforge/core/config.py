@@ -37,6 +37,7 @@ class GlobalConfig(BaseConfig):
     MAX_CONTENT_SIZE: int = 1_048_576
 
     PUBLIC_PASTE_CACHE_MAX_AGE: int = 300
+    PASTE_MANAGEMENT_TIME_WINDOW: timedelta = timedelta(hours=24)
     CACHE_GROUP_PASTES: str = "pastes"
 
     LOG_LEVEL: LogLevel = "DEBUG"
