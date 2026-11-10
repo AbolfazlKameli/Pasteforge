@@ -1,19 +1,18 @@
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from redis_fastapi import RateLimitResult
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
+from pasteforge.core.exceptions import AuthenticationError
 from pasteforge.core.exceptions.exceptions import AppException, InvalidTokenError, TooManyRequestsError
 
 
-def _safe_serialize_value(value):
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, (list, tuple)):
-        return [_safe_serialize_value(item) for item in value]
-    if isinstance(value, dict):
-        return {str(k): _safe_serialize_value(v) for k, v in value.items()}
-    return str(value)
+async def too_many_requests_error(request: Request, result: RateLimitResult):
+    return JSONResponse(
+        content={"data": {"errors": f"Too many requests. retry after {result.retry_after} seconds."}},
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+    )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -24,6 +23,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException):
         return JSONResponse(content={"data": {"errors": exc.message}}, status_code=exc.status_code)
+
+    @app.exception_handler(AuthenticationError)
+    async def authentication_error_exception_handler(request: Request, exc: InvalidTokenError):
+        headers = {"WWW-Authenticate": 'Bearer error="missing_access_token"'}
+        return JSONResponse(content={"data": {"errors": exc.message}}, status_code=exc.status_code, headers=headers)
 
     @app.exception_handler(InvalidTokenError)
     async def invalid_token_exception_handler(request: Request, exc: InvalidTokenError):
@@ -48,6 +52,5 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"data": {"errors": exc.errors()}}
-        )
+        errors = [{"loc": error["loc"], "msg": error["msg"]} for error in exc.errors()]
+        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"data": {"errors": errors}})

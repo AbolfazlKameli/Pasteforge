@@ -31,4 +31,20 @@ async def get_active_user(user: Annotated[User, Depends(get_authenticated_user)]
     return user
 
 
+async def get_optional_user(
+    token_service: token_service_dep,
+    user_service: user_service_dep,
+    access_token: Annotated[str | None, Cookie()] = None,
+) -> User | None:
+    if access_token is None:
+        return None
+
+    user_id = await token_service.validate_jwt_token(access_token, token_type="access")
+    user = await get_authenticated_user(user_id, user_service)
+    active_user = await get_active_user(user)
+
+    return active_user
+
+
 active_user_dep = Annotated[User, Depends(get_active_user)]
+optional_user_dep = Annotated[User | None, Depends(get_optional_user)]
