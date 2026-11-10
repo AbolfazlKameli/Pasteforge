@@ -48,3 +48,7 @@ class PasteUpdateRequest(PasteIn):
 class PasteExpiryRequest(BaseModel):
     password: PasswordValidator | None = None
     expires_at: ExpiresAtValidator
+
+
+class PasteDeleteRequest(BaseModel):
+    password: PasswordValidator | None = None
