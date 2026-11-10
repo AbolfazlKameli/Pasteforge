@@ -7,7 +7,7 @@ from pasteforge.api.dependencies import active_user_dep, anon_usage_service_dep,
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
-from pasteforge.schemas.pastes import PasteIn, PasteOut, PasteUpdateRequest, ProtectedPasteRequest
+from pasteforge.schemas.pastes import PasteExpiryRequest, PasteIn, PasteOut, PasteUpdateRequest, ProtectedPasteRequest
 
 router = APIRouter(prefix="/pastes", tags=["pastes"])
 
@@ -92,4 +92,25 @@ async def update_paste(
         new_password.get_secret_value() if new_password else None,
         **update_data,
     )
+    return {"data": paste}
+
+
+@router.post(
+    "/{paste_id}/expiration",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
+    response_model=DataSchema[PasteOut],
+    responses={
+        **auth_responses,
+        status.HTTP_404_NOT_FOUND: {"model": DataSchema[ErrorResponse], "description": "Paste not found."},
+    },
+)
+async def update_paste_expiration(
+        paste_id: uuid.UUID, update_request: PasteExpiryRequest, paste_service: paste_service_dep, user: active_user_dep
+):
+    password = update_request.password.get_secret_value() if update_request.password else None
+    expires_at = update_request.expires_at
+
+    paste = await paste_service.update_manageable_paste_expiration(paste_id, user.id, password, expires_at)
+
     return {"data": paste}
