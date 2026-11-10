@@ -113,7 +113,7 @@ async def update_paste(
     },
 )
 async def update_paste_expiration(
-        paste_id: uuid.UUID, update_request: PasteExpiryRequest, paste_service: paste_service_dep, user: active_user_dep
+    paste_id: uuid.UUID, update_request: PasteExpiryRequest, paste_service: paste_service_dep, user: active_user_dep
 ):
     password = update_request.password.get_secret_value() if update_request.password else None
     expires_at = update_request.expires_at
@@ -133,7 +133,7 @@ async def update_paste_expiration(
     },
 )
 async def delete_paste(
-        paste_id: uuid.UUID, delete_request: PasteDeleteRequest, user: active_user_dep, paste_service: paste_service_dep
+    paste_id: uuid.UUID, delete_request: PasteDeleteRequest, user: active_user_dep, paste_service: paste_service_dep
 ):
     password = delete_request.password.get_secret_value() if delete_request.password else None
     await paste_service.delete_paste_by_id(paste_id, user.id, password)
