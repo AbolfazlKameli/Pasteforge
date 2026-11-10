@@ -36,6 +36,14 @@ class PasteService:
             raise NotFoundError()
         return paste
 
+    async def get_manageable_paste_by_id(
+            self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
+    ):
+        paste = await self.paste_repo.get_manageable_by_id(paste_id, access_type, for_update)
+        if paste is None:
+            raise NotFoundError()
+        return paste
+
     async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
         paste = await self.cache.get(f"paste:{paste_id}")
         if paste is not None:
@@ -140,3 +148,18 @@ class PasteService:
             update_data["password"] = None
 
         return await self.paste_repo.update(paste, **update_data)
+
+    async def update_manageable_paste_expiration(
+            self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, expires_at: datetime
+    ) -> Paste:
+        paste = await self.get_manageable_paste_by_id(paste_id, [ac for ac in PastesAccessTypes], for_update=True)
+
+        self.check_ownership(paste, user_id)
+
+        if paste.access_type == PastesAccessTypes.password_protected:
+            if password is None:
+                raise ValidationError("A password is required for password-protected pastes.")
+
+            self.validate_paste_password(paste, password)
+
+        return await self.paste_repo.update(paste, expires_at=expires_at)
