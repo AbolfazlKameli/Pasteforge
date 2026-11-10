@@ -45,12 +45,12 @@ class PastesRepository:
         return result.scalar_one_or_none()
 
     async def get_manageable_by_id(
-            self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes] | None, for_update: bool = False
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes] | None, for_update: bool = False
     ):
         now = datetime.now(UTC)
         result = await self.db.execute(
             self.build_get_by_id_query(paste_id, access_types, for_update, active_only=False).where(
-                Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW > now
+                (Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW > now) & (Paste.expires_at < now)
             )
         )
         return result.scalar_one_or_none()
