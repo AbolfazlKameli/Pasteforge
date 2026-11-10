@@ -64,6 +64,12 @@ class PastesRepository:
         )
         return await self.save_paste(paste)
 
+    async def update(self, paste: Paste, **update_data) -> Paste:
+        for k, v in update_data.items():
+            setattr(paste, k, v)
+
+        return await self.save_paste(paste)
+
     async def save_paste(self, paste: Paste) -> Paste:
         self.db.add(paste)
         await self.db.flush()
