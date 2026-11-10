@@ -43,3 +43,8 @@ class ProtectedPasteRequest(BaseModel):
 class PasteUpdateRequest(PasteIn):
     expires_at: ExpiresAtValidator
     new_password: PasswordValidator | None = None
+
+
+class PasteExpiryRequest(BaseModel):
+    password: PasswordValidator | None = None
+    expires_at: ExpiresAtValidator
