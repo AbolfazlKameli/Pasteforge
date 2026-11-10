@@ -10,6 +10,11 @@ class AppException(Exception):
         super().__init__(message)
 
 
+class ValidationError(AppException):
+    def __init__(self, message: str = "Validation Error"):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, message=message)
+
+
 class AuthenticationError(AppException):
     def __init__(self, message: str = "Authentication failed."):
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, message=message)

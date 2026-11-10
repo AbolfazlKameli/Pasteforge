@@ -1,29 +1,12 @@
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from pydantic import AfterValidator, SecretStr
 
-# Password Validator
-SPECIAL_CHARS: set[str] = {
-    "$",
-    "@",
-    "#",
-    "%",
-    "!",
-    "^",
-    "&",
-    "*",
-    "(",
-    ")",
-    "-",
-    "_",
-    "+",
-    "=",
-    "{",
-    "}",
-    "[",
-    "]",
-}
+from pasteforge.core.config import configs
 
+# Password Validator
+SPECIAL_CHARS: set[str] = {"$", "@", "#", "%", "!", "^", "&", "*", "(", ")", "-", "_", "+", "=", "{", "}", "[", "]"}
 MIN_LENGTH: int = 8
 MAX_LENGTH: int = 20
 INCLUDES_SPECIAL_CHARS: bool = True
@@ -64,3 +47,40 @@ def validate_password(v: SecretStr) -> SecretStr:
 
 
 PasswordValidator = Annotated[SecretStr, AfterValidator(validate_password)]
+
+
+def get_content_size(v: str) -> int:
+    return len(v.encode("utf-8"))
+
+
+def validate_content_size(v: str) -> str:
+    size = get_content_size(v)
+
+    if 0 >= size:
+        raise ValueError("Content size should be at least 1 character")
+
+    if size > configs.MAX_CONTENT_SIZE:
+        raise ValueError(f"Content should be less than {configs.MAX_CONTENT_SIZE} bytes.")
+
+    return v
+
+
+ContentSizeValidator = Annotated[str, AfterValidator(validate_content_size)]
+
+
+def validate_expires_at(value: datetime) -> datetime:
+    now = datetime.now(UTC)
+
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("expires_at must be timezone-aware")
+
+    if value < now + timedelta(minutes=1):
+        raise ValueError("Expiration must be at least 1 minute from now")
+
+    if value > now + timedelta(hours=24):
+        raise ValueError("Expiration cannot exceed 24 hours")
+
+    return value
+
+
+ExpiresAtValidator = Annotated[datetime, AfterValidator(validate_expires_at)]
