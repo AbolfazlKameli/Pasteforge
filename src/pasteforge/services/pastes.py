@@ -163,3 +163,16 @@ class PasteService:
             self.validate_paste_password(paste, password)
 
         return await self.paste_repo.update(paste, expires_at=expires_at)
+
+    async def delete_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None) -> None:
+        paste = await self.get_unexpired_paste_by_id(paste_id, [ac for ac in PastesAccessTypes])
+
+        self.check_ownership(paste, user_id)
+
+        if paste.access_type == PastesAccessTypes.password_protected:
+            if password is None:
+                raise ValidationError("A password is required for password-protected pastes.")
+
+            self.validate_paste_password(paste, password)
+
+        await self.paste_repo.delete(paste)
