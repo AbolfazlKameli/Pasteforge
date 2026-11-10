@@ -37,7 +37,7 @@ class PasteService:
         return paste
 
     async def get_manageable_paste_by_id(
-            self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
+        self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
     ):
         paste = await self.paste_repo.get_manageable_by_id(paste_id, access_type, for_update)
         if paste is None:
@@ -150,7 +150,7 @@ class PasteService:
         return await self.paste_repo.update(paste, **update_data)
 
     async def update_manageable_paste_expiration(
-            self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, expires_at: datetime
+        self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, expires_at: datetime
     ) -> Paste:
         paste = await self.get_manageable_paste_by_id(paste_id, [ac for ac in PastesAccessTypes], for_update=True)
 

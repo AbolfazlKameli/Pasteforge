@@ -32,9 +32,9 @@ async def get_active_user(user: Annotated[User, Depends(get_authenticated_user)]
 
 
 async def get_optional_user(
-        token_service: token_service_dep,
-        user_service: user_service_dep,
-        access_token: Annotated[str | None, Cookie()] = None,
+    token_service: token_service_dep,
+    user_service: user_service_dep,
+    access_token: Annotated[str | None, Cookie()] = None,
 ) -> User | None:
     if access_token is None:
         return None
