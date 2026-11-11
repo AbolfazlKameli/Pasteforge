@@ -40,6 +40,9 @@ class GlobalConfig(BaseConfig):
     PASTE_MANAGEMENT_TIME_WINDOW: timedelta = timedelta(hours=24)
     CACHE_GROUP_PASTES: str = "pastes"
 
+    ACCESS_TOKEN_EXPIRE: timedelta = timedelta(minutes=15)
+    REFRESH_TOKEN_EXPIRE: timedelta = timedelta(hours=24)
+
     LOG_LEVEL: LogLevel = "DEBUG"
     SQLALCHEMY_LOG_LEVEL: LogLevel = "DEBUG"
     LOG_DIR: Path = Path("logs")

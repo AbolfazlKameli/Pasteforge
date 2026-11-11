@@ -11,41 +11,37 @@ from pasteforge.repositories import OtpRepository
 
 
 class OtpService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         self.otp_repo = OtpRepository(db)
 
     @staticmethod
     def generate_otp_code() -> str:
         return f"{secrets.randbelow(1_000_000):06d}"
 
-    async def get_otp_by_email(self, email: str) -> Otp | None:
-        return await self.otp_repo.get_by_email(email, False)
+    @staticmethod
+    def _get_expiration_time() -> datetime:
+        return datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
 
-    async def get_otp_by_email_for_update(self, email: str) -> Otp | None:
-        return await self.otp_repo.get_by_email(email, True)
+    async def get_otp_by_email(self, email: str, *, for_update: bool = False) -> Otp | None:
+        return await self.otp_repo.get_by_email(email, for_update=for_update)
 
     async def validate_otp(self, email: str, otp_code: str) -> Otp:
-        otp_obj = await self.get_otp_by_email(email)
-        if otp_obj is None or (not validate_value(otp_obj.hashed_code, otp_code)):
+        otp = await self.get_otp_by_email(email)
+
+        if otp is None or otp.expires_at <= datetime.now(UTC) or not validate_value(otp.hashed_code, otp_code):
             raise ForbiddenError("Invalid or expired OTP code.")
-        return otp_obj
+
+        return otp
 
     async def get_or_create(self, email: str, otp_code: str) -> tuple[Otp, bool]:
-        otp = await self.get_otp_by_email(email)
-        is_new = False
-
-        if otp is None:
-            expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
-            hashed_otp = hash_value(otp_code)
-            otp = await self.otp_repo.create(email, hashed_otp, expires_at)
-            is_new = True
-
-        return otp, is_new
+        return await self.otp_repo.create_if_not_exists(
+            email=email, hashed_code=hash_value(otp_code), expires_at=self._get_expiration_time()
+        )
 
     async def refresh_otp(self, otp: Otp, otp_code: str) -> None:
-        expires_at = datetime.now(UTC) + configs.OTP_SETTINGS.EXPIRATION_TIME
-        hashed_otp = hash_value(otp_code)
-        await self.otp_repo.update_expired(otp.id, hashed_otp, expires_at)
+        await self.otp_repo.refresh_otp(
+            otp_id=otp.id, hashed_code=hash_value(otp_code), expires_at=self._get_expiration_time()
+        )
 
     async def delete_otp(self, otp: Otp) -> None:
         await self.otp_repo.delete(otp)
