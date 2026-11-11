@@ -188,8 +188,7 @@ class PasteService:
 
         self.check_ownership(paste, user_id)
 
-        if password is not None:
-            self.validate_paste_password(paste, password)
+        self.validate_paste_password(paste, password)
 
         await self.paste_repo.delete(paste)
         await self.invalidate_paste_cache(paste_id)
