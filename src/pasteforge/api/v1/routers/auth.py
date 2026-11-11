@@ -22,42 +22,32 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 
-def _set_auth_cookies(access: str, refresh: str, csrf: str, response: Response) -> None:
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_token: str) -> None:
+    secure = not configs.DEBUG
+
     response.set_cookie(
         key="refresh_token",
-        value=refresh,
+        value=refresh_token,
         httponly=True,
-        secure=not configs.DEBUG,
+        secure=secure,
         path="/api/v1/auth/refresh",
         max_age=86400,
         samesite="lax",
     )
-
     response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=not configs.DEBUG,
-        path="/",
-        max_age=900,
-        samesite="lax",
+        key="access_token", value=access_token, httponly=True, secure=secure, path="/", max_age=900, samesite="lax"
     )
-
     response.set_cookie(
-        key="csrf_token",
-        value=csrf,
-        httponly=False,
-        secure=not configs.DEBUG,
-        path="/",
-        max_age=86400,
-        samesite="lax",
+        key="csrf_token", value=csrf_token, httponly=False, secure=secure, path="/", max_age=86400, samesite="lax"
     )
 
 
 def _clear_auth_cookies(response: Response) -> None:
-    response.delete_cookie("refresh_token", "/api/v1/auth/refresh")
-    response.delete_cookie("access_token", "/")
-    response.delete_cookie("csrf_token", "/")
+    response.delete_cookie(
+        key="refresh_token", path="/api/v1/auth/refresh", secure=not configs.DEBUG, httponly=True, samesite="lax"
+    )
+    response.delete_cookie(key="access_token", path="/", secure=not configs.DEBUG, httponly=True, samesite="lax")
+    response.delete_cookie(key="csrf_token", path="/", secure=not configs.DEBUG, httponly=False, samesite="lax")
 
 
 @router.post(
@@ -66,14 +56,8 @@ def _clear_auth_cookies(response: Response) -> None:
     dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[UserOTPResponse],
     responses={
-        status.HTTP_400_BAD_REQUEST: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when email already exists.",
-        },
-        status.HTTP_429_TOO_MANY_REQUESTS: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when too many requests occurs.",
-        },
+        status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Email already exists."},
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": DataSchema[ErrorResponse], "description": "Too many requests."},
     },
 )
 async def request_otp_to_register(
@@ -83,7 +67,7 @@ async def request_otp_to_register(
 
     await auth_service.check_blacklist_for_user(email)
 
-    if await user_service.user_exists_with_email(email):
+    if await user_service.exists_by_email(email):
         raise UserAlreadyExistsError()
 
     await auth_service.generate_and_send_otp(email)
@@ -104,23 +88,16 @@ async def request_otp_to_register(
     dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
     response_model=DataSchema[UserRegisterResponse],
     responses={
-        status.HTTP_400_BAD_REQUEST: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when email already exists.",
-        },
-        status.HTTP_403_FORBIDDEN: {
-            "model": DataSchema[ErrorResponse],
-            "description": "Error when OTP verification failed.",
-        },
+        status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Email already exists."},
+        status.HTTP_403_FORBIDDEN: {"model": DataSchema[ErrorResponse], "description": "OTP verification failed."},
     },
 )
 async def verify_otp_code(
     request_data: OtpVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
 ):
-    otp_code = request_data.otp_code
     email = str(request_data.email)
 
-    otp = await otp_service.validate_otp(email, otp_code)
+    otp = await otp_service.validate_otp(email, request_data.otp_code)
 
     user = await user_service.create_user(email, request_data.password.get_secret_value())
 
@@ -128,7 +105,7 @@ async def verify_otp_code(
 
     logger.info("User registration completed successfully")
 
-    return {"data": {"message": "User Registered successfully.", "user": user}}
+    return {"data": {"message": "User registered successfully.", "user": user}}
 
 
 @router.post(
@@ -139,25 +116,28 @@ async def verify_otp_code(
     responses={
         status.HTTP_400_BAD_REQUEST: {
             "model": DataSchema[ErrorResponse],
-            "description": "Error when email or password is incorrect.",
-        }
+            "description": "Email or password is incorrect.",
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": DataSchema[ErrorResponse], "description": "Too many requests."},
     },
 )
 async def user_login(
-    login_data: UserLoginRequest, user_service: user_service_dep, token_service: token_service_dep, response: Response
+        login_data: UserLoginRequest, response: Response, user_service: user_service_dep,
+        token_service: token_service_dep
 ):
     email = str(login_data.email)
+
     user = await user_service.authenticate_user_by_email(email, login_data.password.get_secret_value())
 
-    # noinspection PyTypeChecker
-    access, refresh = await token_service.create_token_pair(user.id, email)
+    access_token, refresh_token = await token_service.create_token_pair(user.id, email)
+
     csrf_token = generate_csrf_token()
 
-    _set_auth_cookies(access, refresh, csrf_token, response)
+    _set_auth_cookies(response, access_token, refresh_token, csrf_token)
 
     logger.info("User login successful")
 
-    return {"data": {"message": "User logged in Successfully."}}
+    return {"data": {"message": "User logged in successfully."}}
 
 
 @router.post(
@@ -168,13 +148,21 @@ async def user_login(
     responses={
         status.HTTP_401_UNAUTHORIZED: {
             "model": DataSchema[ErrorResponse],
-            "description": "Error when invalid token provided.",
-        }
+            "description": "Invalid authentication token.",
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": DataSchema[ErrorResponse], "description": "Too many requests."},
     },
 )
-async def user_logout(token_service: token_service_dep, access_token: Annotated[str, Cookie()], response: Response):
-    await token_service.blacklist_token_pair_by_sid(token_service.get_token_sid(access_token, "access"))
+async def user_logout(
+        response: Response, token_service: token_service_dep, access_token: Annotated[str, Cookie(alias="access_token")]
+):
+    token_sid = token_service.get_token_sid(access_token, "access")
+    await token_service.blacklist_by_sid(token_sid)
+
     _clear_auth_cookies(response)
+
+    logger.info("User logout successful")
+
     return {"data": {"message": "User logged out successfully."}}
 
 
@@ -185,29 +173,28 @@ async def user_logout(token_service: token_service_dep, access_token: Annotated[
     response_model=DataSchema[SuccessResponse],
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": DataSchema[ErrorResponse], "description": "Invalid refresh token."},
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": DataSchema[ErrorResponse], "description": "Too many requests."},
         **auth_responses,
     },
 )
 async def refresh_auth_token(
+        response: Response,
     token_service: token_service_dep,
     user_service: user_service_dep,
     refresh_token: Annotated[str, Cookie(alias="refresh_token")],
-    response: Response,
 ):
     user_id = await token_service.validate_jwt_token(refresh_token, "refresh")
     user = await user_service.get_active_user_by_id(user_id)
 
-    user_id = user.id
-    user_email = user.email
+    token_sid = token_service.get_token_sid(refresh_token, "refresh")
+    await token_service.blacklist_by_sid(token_sid)
 
-    await token_service.blacklist_token_pair_by_sid(token_service.get_token_sid(refresh_token, "refresh"))
+    access_token, new_refresh_token = await token_service.create_token_pair(user.id, user.email)
 
-    # noinspection PyTypeChecker
-    access, refresh = await token_service.create_token_pair(user_id, user_email)
     csrf_token = generate_csrf_token()
 
-    _set_auth_cookies(access, refresh, csrf_token, response)
+    _set_auth_cookies(response, access_token, new_refresh_token, csrf_token)
 
     logger.info("Authentication token refresh completed successfully")
 
-    return {"data": {"message": "Token Refreshed successfully."}}
+    return {"data": {"message": "Tokens refreshed successfully."}}
