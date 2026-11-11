@@ -84,7 +84,7 @@ async def retrieve_password_protected_paste(
     return {"data": paste}
 
 
-@router.put(
+@router.patch(
     "/{paste_id}",
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(rate_limit("5/minute", on_limit_exceeded=too_many_requests_error))],
@@ -98,7 +98,7 @@ async def retrieve_password_protected_paste(
 async def update_paste(
     paste_id: uuid.UUID, update_request: PasteUpdateRequest, paste_service: paste_service_dep, user: active_user_dep
 ):
-    update_data = update_request.model_dump(exclude={"password", "new_password"})
+    update_data = update_request.model_dump(exclude={"password", "new_password"}, exclude_unset=True)
 
     paste = await paste_service.update_paste(
         paste_id,
