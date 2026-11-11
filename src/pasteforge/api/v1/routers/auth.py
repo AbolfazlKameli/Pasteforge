@@ -93,7 +93,7 @@ async def request_otp_to_register(
     },
 )
 async def verify_otp_code(
-        request_data: OTPVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
+    request_data: OTPVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
 ):
     email = str(request_data.email)
 
