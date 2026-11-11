@@ -9,7 +9,7 @@ from pasteforge.core.config import configs
 from pasteforge.core.exceptions import UserAlreadyExistsError, too_many_requests_error
 from pasteforge.core.security import generate_csrf_token
 from pasteforge.schemas.auth import (
-    OtpVerifyUserRegisterRequest,
+    OTPVerifyUserRegisterRequest,
     UserLoginRequest,
     UserOTPResponse,
     UserRegisterRequest,
@@ -93,7 +93,7 @@ async def request_otp_to_register(
     },
 )
 async def verify_otp_code(
-    request_data: OtpVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
+        request_data: OTPVerifyUserRegisterRequest, otp_service: otp_service_dep, user_service: user_service_dep
 ):
     email = str(request_data.email)
 
