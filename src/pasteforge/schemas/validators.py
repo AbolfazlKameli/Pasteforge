@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from pydantic import AfterValidator, SecretStr
+from pydantic import AfterValidator, Field, SecretStr
 
 from pasteforge.core.config import configs
 
@@ -84,3 +84,5 @@ def validate_expires_at(value: datetime) -> datetime:
 
 
 ExpiresAtValidator = Annotated[datetime, AfterValidator(validate_expires_at)]
+
+OTPCode = Annotated[str, Field(min_length=6, max_length=6, pattern=r"^\d{6}$")]

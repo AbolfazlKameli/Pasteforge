@@ -1,16 +1,16 @@
 from typing import Self
 
 from fastapi import status
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, model_validator
 
 from .common import DataSchema, ErrorResponse
-from .users import UserOut
-from .validators import PasswordValidator
+from .users import PasswordConfirmationRequest, UserOut
+from .validators import OTPCode, PasswordValidator
 
 
 class UserOTPResponse(BaseModel):
     message: str
-    otp_valid_time: int
+    otp_expires_in: int
 
 
 class UserRegisterRequest(BaseModel):
@@ -22,22 +22,17 @@ class UserRegisterResponse(BaseModel):
     user: UserOut
 
 
-class OtpVerifyUserRegisterRequest(BaseModel):
+class OTPVerifyUserRegisterRequest(PasswordConfirmationRequest):
     email: EmailStr
     password: PasswordValidator
     confirm_password: PasswordValidator
-    otp_code: str = Field(min_length=6, max_length=6)
+    otp_code: OTPCode
 
     @model_validator(mode="after")
     def check_passwords_match(self) -> Self:
         if self.password != self.confirm_password:
             raise ValueError("Passwords don't match")
         return self
-
-
-class UserTokenResponse(BaseModel):
-    message: str
-    access_token: str
 
 
 class UserLoginRequest(BaseModel):
