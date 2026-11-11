@@ -42,7 +42,7 @@ class PasteService:
         await self.cache.delete(self.get_cache_key(paste_id))
 
     async def get_unexpired_paste_by_id(
-            self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
     ) -> Paste:
         paste = await self.paste_repo.get_unexpired_by_id(
             paste_id=paste_id, access_types=access_types, for_update=for_update
@@ -54,7 +54,7 @@ class PasteService:
         return paste
 
     async def get_manageable_paste_by_id(
-            self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
     ) -> Paste:
         paste = await self.paste_repo.get_manageable_by_id(
             paste_id=paste_id, access_types=access_types, for_update=for_update
@@ -103,7 +103,7 @@ class PasteService:
         syntax: str,
         size_bytes: int,
         access_type: PastesAccessTypes,
-            expires_at: datetime | None,
+        expires_at: datetime | None,
         password: str | None,
         owner_id: uuid.UUID | None,
     ) -> Paste:
@@ -138,12 +138,12 @@ class PasteService:
         )
 
     async def update_paste(
-            self,
-            paste_id: uuid.UUID,
-            user_id: uuid.UUID,
-            password: str | None,
-            new_password: str | None,
-            **update_data: Any,
+        self,
+        paste_id: uuid.UUID,
+        user_id: uuid.UUID,
+        password: str | None,
+        new_password: str | None,
+        **update_data: Any,
     ) -> Paste:
         paste = await self.get_unexpired_paste_by_id(paste_id, list(PastesAccessTypes), for_update=True)
 
