@@ -122,8 +122,7 @@ async def verify_otp_code(
     },
 )
 async def user_login(
-        login_data: UserLoginRequest, response: Response, user_service: user_service_dep,
-        token_service: token_service_dep
+    login_data: UserLoginRequest, response: Response, user_service: user_service_dep, token_service: token_service_dep
 ):
     email = str(login_data.email)
 
@@ -154,7 +153,7 @@ async def user_login(
     },
 )
 async def user_logout(
-        response: Response, token_service: token_service_dep, access_token: Annotated[str, Cookie(alias="access_token")]
+    response: Response, token_service: token_service_dep, access_token: Annotated[str, Cookie(alias="access_token")]
 ):
     token_sid = token_service.get_token_sid(access_token, "access")
     await token_service.blacklist_by_sid(token_sid)
@@ -178,7 +177,7 @@ async def user_logout(
     },
 )
 async def refresh_auth_token(
-        response: Response,
+    response: Response,
     token_service: token_service_dep,
     user_service: user_service_dep,
     refresh_token: Annotated[str, Cookie(alias="refresh_token")],
