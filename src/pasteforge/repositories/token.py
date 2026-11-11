@@ -7,37 +7,43 @@ from pasteforge.models import TokenObtainPair, TokenPairStatuses
 
 
 class TokenPairRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_blacklisted_by_sid(self, sid: uuid.UUID) -> TokenObtainPair | None:
-        result = await self.db.execute(
-            sa.select(TokenObtainPair).where(
-                (TokenObtainPair.status == TokenPairStatuses.blacklisted) & (TokenObtainPair.sid == sid)
-            )
-        )
+    async def get_by_sid(self, sid: uuid.UUID) -> TokenObtainPair | None:
+        stmt = sa.select(TokenObtainPair).where(TokenObtainPair.sid == sid)
+        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def blacklist_token_pair_by_sid(self, sid: uuid.UUID) -> None:
-        await self.db.execute(
-            sa.update(TokenObtainPair).where(TokenObtainPair.sid == sid).values(status=TokenPairStatuses.blacklisted)
+    async def get_blacklisted_by_sid(self, sid: uuid.UUID) -> TokenObtainPair | None:
+        stmt = sa.select(TokenObtainPair).where(
+            (TokenObtainPair.sid == sid) & (TokenObtainPair.status == TokenPairStatuses.blacklisted)
         )
-        await self.db.flush()
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
-    async def blacklist_token_pair_by_user_id(self, user_id: uuid.UUID) -> None:
-        await self.db.execute(
+    async def blacklist_by_sid(self, sid: uuid.UUID) -> None:
+        stmt = (
             sa.update(TokenObtainPair)
-            .where(TokenObtainPair.owner_id == user_id)
+            .where((TokenObtainPair.sid == sid) & (TokenObtainPair.status != TokenPairStatuses.blacklisted))
             .values(status=TokenPairStatuses.blacklisted)
         )
-        await self.db.flush()
+        await self.db.execute(stmt)
+
+    async def blacklist_by_user_id(self, user_id: uuid.UUID) -> None:
+        stmt = (
+            sa.update(TokenObtainPair)
+            .where((TokenObtainPair.owner_id == user_id) & (TokenObtainPair.status != TokenPairStatuses.blacklisted))
+            .values(status=TokenPairStatuses.blacklisted)
+        )
+        await self.db.execute(stmt)
 
     async def create(self, sid: uuid.UUID, owner_id: uuid.UUID) -> TokenObtainPair:
         token_pair = TokenObtainPair(sid=sid, owner_id=owner_id)
         self.db.add(token_pair)
         await self.db.flush()
-        await self.db.refresh(token_pair)
         return token_pair
 
-    async def is_pair_exists(self, sid: uuid.UUID) -> bool:
-        return await self.db.scalar(sa.select(sa.exists().where(TokenObtainPair.sid == sid)))
+    async def exists_by_sid(self, sid: uuid.UUID) -> bool:
+        stmt = sa.select(sa.exists().where(TokenObtainPair.sid == sid))
+        return bool(await self.db.scalar(stmt))

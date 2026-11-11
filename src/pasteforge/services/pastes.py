@@ -1,11 +1,12 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from redis_fastapi import CacheBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
-from pasteforge.core.exceptions import AuthenticationError, ForbiddenError, NotFoundError, ValidationError
+from pasteforge.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import Paste, PastesAccessTypes
 from pasteforge.repositories import PastesRepository
@@ -13,9 +14,15 @@ from pasteforge.schemas.pastes import PasteOut
 
 
 class PasteService:
+    CACHE_KEY_PREFIX = "paste:"
+
     def __init__(self, db: AsyncSession, cache: CacheBackend):
         self.paste_repo = PastesRepository(db)
         self.cache = cache
+
+    @classmethod
+    def get_cache_key(cls, paste_id: uuid.UUID) -> str:
+        return f"{cls.CACHE_KEY_PREFIX}{paste_id}"
 
     @staticmethod
     def check_ownership(paste: Paste, user_id: uuid.UUID) -> None:
@@ -24,37 +31,51 @@ class PasteService:
 
     @staticmethod
     def validate_paste_password(paste: Paste, password: str) -> None:
-        # noinspection PyTypeChecker
-        if not validate_value(paste.password, password):
-            raise ForbiddenError("Incorrect password.")
+        if paste.access_type == PastesAccessTypes.password_protected:
+            if password is None:
+                raise ValidationError("A password is required for password-protected pastes.")
+
+            if not validate_value(paste.password, password):
+                raise ValidationError("Incorrect password.")
+
+    async def invalidate_paste_cache(self, paste_id: uuid.UUID) -> None:
+        await self.cache.delete(self.get_cache_key(paste_id))
 
     async def get_unexpired_paste_by_id(
-        self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
-    ) -> Paste | None:
-        paste = await self.paste_repo.get_unexpired_by_id(paste_id, access_type, for_update)
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
+    ) -> Paste:
+        paste = await self.paste_repo.get_unexpired_by_id(
+            paste_id=paste_id, access_types=access_types, for_update=for_update
+        )
+
         if paste is None:
             raise NotFoundError()
+
         return paste
 
     async def get_manageable_paste_by_id(
-        self, paste_id: uuid.UUID, access_type: list[PastesAccessTypes], for_update: bool = False
-    ):
-        paste = await self.paste_repo.get_manageable_by_id(paste_id, access_type, for_update)
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
+    ) -> Paste:
+        paste = await self.paste_repo.get_manageable_by_id(
+            paste_id=paste_id, access_types=access_types, for_update=for_update
+        )
+
         if paste is None:
             raise NotFoundError()
+
         return paste
 
     async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
-        paste = await self.cache.get(f"paste:{paste_id}")
-        if paste is not None:
-            now = datetime.now(UTC)
-            paste = PasteOut.model_validate_json(paste)
+        cache_key = self.get_cache_key(paste_id)
+        cached_paste = await self.cache.get(cache_key)
 
-            if paste.expires_at < now:
-                await self.cache.delete(f"paste:{paste_id}")
-                raise NotFoundError()
+        if cached_paste is not None:
+            paste_out = PasteOut.model_validate_json(cached_paste)
 
-            return paste
+            if paste_out.access_type == PastesAccessTypes.public.value and paste_out.expires_at > datetime.now(UTC):
+                return paste_out
+
+            await self.cache.delete(cache_key)
 
         paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
 
@@ -64,11 +85,12 @@ class PasteService:
 
             self.check_ownership(paste, user_id)
 
-        if paste.access_type == PastesAccessTypes.public:
-            serialized = PasteOut.model_validate(paste).model_dump_json()
-            await self.cache.set(f"paste:{paste.id}", serialized, ttl=configs.PUBLIC_PASTE_CACHE_MAX_AGE)
+        paste_out = PasteOut.model_validate(paste)
 
-        return PasteOut.model_validate(paste)
+        if paste.access_type == PastesAccessTypes.public:
+            await self.cache.set(cache_key, paste_out.model_dump_json(), ttl=configs.PUBLIC_PASTE_CACHE_MAX_AGE)
+
+        return paste_out
 
     async def get_protected_paste_by_id(self, paste_id: uuid.UUID, password: str):
         paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.password_protected])
@@ -81,16 +103,10 @@ class PasteService:
         syntax: str,
         size_bytes: int,
         access_type: PastesAccessTypes,
-        expires_at: datetime,
+        expires_at: datetime | None,
         password: str | None,
         owner_id: uuid.UUID | None,
     ) -> Paste:
-        if size_bytes <= 0:
-            raise ValueError("Paste content must not be empty.")
-
-        if size_bytes > configs.MAX_CONTENT_SIZE:
-            raise ValueError(f"Paste content must not exceed {configs.MAX_CONTENT_SIZE} bytes.")
-
         hashed_password = None
 
         if owner_id is None:
@@ -122,17 +138,17 @@ class PasteService:
         )
 
     async def update_paste(
-        self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, new_password: str | None, **update_data
+        self,
+        paste_id: uuid.UUID,
+        user_id: uuid.UUID,
+        password: str | None,
+        new_password: str | None,
+        **update_data: Any,
     ) -> Paste:
-        paste = await self.get_unexpired_paste_by_id(paste_id, [ac for ac in PastesAccessTypes], for_update=True)
+        paste = await self.get_unexpired_paste_by_id(paste_id, list(PastesAccessTypes), for_update=True)
 
         self.check_ownership(paste, user_id)
-
-        if paste.access_type == PastesAccessTypes.password_protected:
-            if password is None:
-                raise ValidationError("A password is required for password-protected pastes.")
-
-            self.validate_paste_password(paste, password)
+        self.validate_paste_password(paste, password)
 
         access_type = update_data.get("access_type")
 
@@ -147,32 +163,33 @@ class PasteService:
         elif access_type is not None:
             update_data["password"] = None
 
-        return await self.paste_repo.update(paste, **update_data)
+        updated_paste = await self.paste_repo.update(paste, **update_data)
+
+        await self.invalidate_paste_cache(paste_id)
+
+        return updated_paste
 
     async def update_manageable_paste_expiration(
         self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None, expires_at: datetime
     ) -> Paste:
-        paste = await self.get_manageable_paste_by_id(paste_id, [ac for ac in PastesAccessTypes], for_update=True)
+        paste = await self.get_manageable_paste_by_id(paste_id, list(PastesAccessTypes), for_update=True)
 
         self.check_ownership(paste, user_id)
+        self.validate_paste_password(paste, password)
 
-        if paste.access_type == PastesAccessTypes.password_protected:
-            if password is None:
-                raise ValidationError("A password is required for password-protected pastes.")
+        updated_paste = await self.paste_repo.update(paste, expires_at=expires_at)
 
-            self.validate_paste_password(paste, password)
+        await self.invalidate_paste_cache(paste_id)
 
-        return await self.paste_repo.update(paste, expires_at=expires_at)
+        return updated_paste
 
     async def delete_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None) -> None:
-        paste = await self.get_unexpired_paste_by_id(paste_id, [ac for ac in PastesAccessTypes])
+        paste = await self.get_unexpired_paste_by_id(paste_id, list(PastesAccessTypes), for_update=True)
 
         self.check_ownership(paste, user_id)
 
-        if paste.access_type == PastesAccessTypes.password_protected:
-            if password is None:
-                raise ValidationError("A password is required for password-protected pastes.")
-
+        if password is not None:
             self.validate_paste_password(paste, password)
 
         await self.paste_repo.delete(paste)
+        await self.invalidate_paste_cache(paste_id)
