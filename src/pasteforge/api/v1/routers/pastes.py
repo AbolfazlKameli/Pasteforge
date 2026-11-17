@@ -46,8 +46,8 @@ async def create_paste(
     paste_service: paste_service_dep,
     user: optional_user_dep,
     anon_usage_service: anon_usage_service_dep,
-        idempotency_key: idempotency_key_dep,
-        idempotency_service: idempotency_service_dep,
+    idempotency_key: idempotency_key_dep,
+    idempotency_service: idempotency_service_dep,
 ):
     create_data = create_request.model_dump(exclude={"password"})
     password = _get_password_hash_input(create_request.password)

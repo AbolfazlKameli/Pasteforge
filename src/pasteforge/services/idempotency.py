@@ -29,7 +29,7 @@ class IdempotencyService:
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
     async def claim_idempotency(
-            self, *, scope_key: str, idempotency_key: uuid.UUID, request_hash: str
+        self, *, scope_key: str, idempotency_key: uuid.UUID, request_hash: str
     ) -> tuple[str | None, uuid.UUID]:
         await self.idempotency_repo.delete_expired_by_key(scope_key=scope_key, key=idempotency_key)
 
