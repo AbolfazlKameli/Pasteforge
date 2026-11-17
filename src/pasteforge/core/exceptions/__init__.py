@@ -1,6 +1,8 @@
 from pasteforge.core.exceptions.exceptions import (
     AuthenticationError,
     ForbiddenError,
+    IdempotencyConflictError,
+    IdempotencyInProgressError,
     InvalidTokenError,
     NotFoundError,
     TooManyRequestsError,
@@ -17,6 +19,8 @@ __all__ = [
     "UserAlreadyExistsError",
     "ValidationError",
     "NotFoundError",
+    "IdempotencyInProgressError",
+    "IdempotencyConflictError",
     "register_exception_handlers",
     "too_many_requests_error",
 ]

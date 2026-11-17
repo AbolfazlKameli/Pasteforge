@@ -45,3 +45,13 @@ class UserAlreadyExistsError(AppException):
 class NotFoundError(AppException):
     def __init__(self, message: str = "Not found."):
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, message=message)
+
+
+class IdempotencyConflictError(AppException):
+    def __init__(self, message: str = "Idempotency conflict error."):
+        super().__init__(status_code=status.HTTP_409_CONFLICT, message=message)
+
+
+class IdempotencyInProgressError(AppException):
+    def __init__(self, message: str = "Idempotency in progress error."):
+        super().__init__(status_code=status.HTTP_409_CONFLICT, message=message)
