@@ -3,7 +3,14 @@ import uuid
 from fastapi import APIRouter, Depends, Request, status
 from redis_fastapi import rate_limit
 
-from pasteforge.api.dependencies import active_user_dep, anon_usage_service_dep, optional_user_dep, paste_service_dep
+from pasteforge.api.dependencies import (
+    active_user_dep,
+    anon_usage_service_dep,
+    idempotency_key_dep,
+    idempotency_service_dep,
+    optional_user_dep,
+    paste_service_dep,
+)
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
@@ -39,14 +46,36 @@ async def create_paste(
     paste_service: paste_service_dep,
     user: optional_user_dep,
     anon_usage_service: anon_usage_service_dep,
+        idempotency_key: idempotency_key_dep,
+        idempotency_service: idempotency_service_dep,
 ):
-    if user is None:
-        await anon_usage_service.validate_paste_usage(request.client.host)
-
     create_data = create_request.model_dump(exclude={"password"})
     password = _get_password_hash_input(create_request.password)
 
-    paste = await paste_service.create_paste(owner_id=user.id if user else None, password=password, **create_data)
+    user_id = user.id if user else None
+
+    idempotency_scope = idempotency_service.build_scope_key(user_id, request.client.host)
+    request_hash = idempotency_service.generate_request_hash(
+        method=request.method, path=request.url.path, payload=create_request
+    )
+
+    idempotency_response, record_id = await idempotency_service.claim_idempotency(
+        scope_key=idempotency_scope, idempotency_key=idempotency_key, request_hash=request_hash
+    )
+
+    if idempotency_response is not None:
+        return {"data": PasteOut.model_validate_json(idempotency_response)}
+
+    if user is None:
+        await anon_usage_service.validate_paste_usage(request.client.host)
+
+    paste = await paste_service.create_paste(owner_id=user_id, password=password, **create_data)
+
+    await idempotency_service.complete_idempotency(
+        record_id=record_id,
+        response_status=status.HTTP_201_CREATED,
+        response_body=PasteOut.model_validate(paste).model_dump_json(),
+    )
 
     return {"data": paste}
 
