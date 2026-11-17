@@ -29,6 +29,8 @@ class GlobalConfig(BaseConfig):
     TIMEZONE: str
     SECRET_KEY: str
 
+    IDEMPOTENCY_KEY_RETENTION: timedelta = timedelta(hours=24)
+
     UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
 
     OTP_SETTINGS: OTPSettings = OTPSettings()
