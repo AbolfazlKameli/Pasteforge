@@ -93,7 +93,7 @@ async def verify_user_email(
 
     otp = await otp_service.validate_otp(new_email, otp_code)
     await user_service.update_user_email(user.id, email=new_email)
-    await token_service.blacklist_token_pair_by_user_id(user_id)
+    await token_service.blacklist_by_user_id(user_id)
     await otp_service.delete_otp(otp)
 
     logger.info("User email verification completed successfully")
@@ -166,9 +166,7 @@ async def set_password(
         raise NotFoundError()
 
     await user_service.change_password(user, validated_data.new_password.get_secret_value())
-
-    await token_service.blacklist_token_pair_by_user_id(user.id)
-
+    await token_service.blacklist_by_user_id(user.id)
     await otp_service.delete_otp(otp)
 
     logger.info("User password reset completed successfully")
@@ -199,7 +197,7 @@ async def change_user_password(
     new_password = change_request.new_password.get_secret_value()
 
     await user_service.change_password(user, new_password, password)
-    await token_service.blacklist_token_pair_by_user_id(user.id)
+    await token_service.blacklist_by_user_id(user.id)
 
     logger.info("User password changed successfully")
 

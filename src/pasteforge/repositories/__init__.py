@@ -1,4 +1,5 @@
 from pasteforge.repositories.anon_usage import AnonymousUsageRepository
+from pasteforge.repositories.idempotency import IdempotencyRepository
 from pasteforge.repositories.otp import OtpRepository
 from pasteforge.repositories.otp_blacklist import OtpBlacklistRepository
 from pasteforge.repositories.pastes import PastesRepository
@@ -12,4 +13,5 @@ __all__ = [
     "UserRepository",
     "AnonymousUsageRepository",
     "PastesRepository",
+    "IdempotencyRepository",
 ]

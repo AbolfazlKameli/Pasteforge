@@ -29,6 +29,8 @@ class GlobalConfig(BaseConfig):
     TIMEZONE: str
     SECRET_KEY: str
 
+    IDEMPOTENCY_KEY_RETENTION: timedelta = timedelta(hours=24)
+
     UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
 
     OTP_SETTINGS: OTPSettings = OTPSettings()
@@ -39,6 +41,9 @@ class GlobalConfig(BaseConfig):
     PUBLIC_PASTE_CACHE_MAX_AGE: int = 300
     PASTE_MANAGEMENT_TIME_WINDOW: timedelta = timedelta(hours=24)
     CACHE_GROUP_PASTES: str = "pastes"
+
+    ACCESS_TOKEN_EXPIRE: timedelta = timedelta(minutes=15)
+    REFRESH_TOKEN_EXPIRE: timedelta = timedelta(hours=24)
 
     LOG_LEVEL: LogLevel = "DEBUG"
     SQLALCHEMY_LOG_LEVEL: LogLevel = "DEBUG"
