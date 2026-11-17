@@ -23,7 +23,7 @@ class IdempotencyRepository:
         return result.scalar_one_or_none()
 
     async def claim(
-            self, *, scope_key: str, key: uuid.UUID, request_hash: str
+        self, *, scope_key: str, key: uuid.UUID, request_hash: str
     ) -> tuple[bool, IdempotencyRecord | None]:
         now = datetime.now(UTC)
 
