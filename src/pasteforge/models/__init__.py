@@ -1,4 +1,5 @@
 from pasteforge.models.anon_usage import AnonymousUsage
+from pasteforge.models.idempotency import IdempotencyRecord, IdempotencyStatus
 from pasteforge.models.otp import Otp
 from pasteforge.models.otp_blacklist import OtpBlacklist
 from pasteforge.models.pastes import Paste, PastesAccessTypes
@@ -14,4 +15,6 @@ __all__ = [
     "PastesAccessTypes",
     "Paste",
     "AnonymousUsage",
+    "IdempotencyRecord",
+    "IdempotencyStatus",
 ]
