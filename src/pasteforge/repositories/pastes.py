@@ -3,15 +3,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.models import Paste, PastesAccessTypes
 
 
 class PastesRepository:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: db_dependency) -> None:
         self.db = db
 
     @staticmethod
