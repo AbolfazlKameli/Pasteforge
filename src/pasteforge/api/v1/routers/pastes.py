@@ -12,6 +12,7 @@ from pasteforge.api.dependencies import (
     paste_service_dep,
 )
 from pasteforge.core.exceptions import too_many_requests_error
+from pasteforge.models import PastesAccessTypes
 from pasteforge.schemas.auth import auth_responses
 from pasteforge.schemas.common import DataSchema, ErrorResponse
 from pasteforge.schemas.pastes import (
@@ -64,7 +65,10 @@ async def create_paste(
     )
 
     if idempotency_response is not None:
-        return {"data": PasteOut.model_validate_json(idempotency_response)}
+        paste_out = PasteOut.model_validate_json(idempotency_response)
+        # To avoid a deleted paste record return in response of an idempotency key replay request
+        paste = await paste_service.get_unexpired_paste_by_id(paste_out.id, list(PastesAccessTypes))
+        return {"data": paste}
 
     if user is None:
         await anon_usage_service.validate_paste_usage(request.client.host)

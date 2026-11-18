@@ -16,19 +16,12 @@ class PastesRepository:
 
     @staticmethod
     def build_get_by_id_query(
-        paste_id: uuid.UUID,
-        access_types: list[PastesAccessTypes] | None = None,
-        *,
-        for_update: bool = False,
-        active_only: bool = True,
-    ) -> sa.Select[tuple[Paste]]:
+        paste_id: uuid.UUID, access_types: list[PastesAccessTypes] | None = None, *, for_update: bool = False
+    ) -> sa.Select[Paste]:
         stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
 
         if access_types is not None:
             stmt = stmt.where(Paste.access_type.in_(access_types))
-
-        if active_only:
-            stmt = stmt.where(Paste.is_active.is_(True))
 
         if for_update:
             stmt = stmt.with_for_update(of=Paste)
@@ -36,18 +29,13 @@ class PastesRepository:
         return stmt
 
     async def get_unexpired_by_id(
-        self,
-        paste_id: uuid.UUID,
-        access_types: list[PastesAccessTypes] | None = None,
-        *,
-        for_update: bool = False,
-        active_only: bool = True,
+        self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes] | None = None, *, for_update: bool = False
     ) -> Paste | None:
         now = datetime.now(UTC)
 
-        stmt = self.build_get_by_id_query(
-            paste_id=paste_id, access_types=access_types, for_update=for_update, active_only=active_only
-        ).where(Paste.expires_at > now)
+        stmt = self.build_get_by_id_query(paste_id=paste_id, access_types=access_types, for_update=for_update).where(
+            Paste.expires_at > now
+        )
 
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -57,9 +45,9 @@ class PastesRepository:
     ) -> Paste | None:
         now = datetime.now(UTC)
 
-        stmt = self.build_get_by_id_query(
-            paste_id=paste_id, access_types=access_types, for_update=for_update, active_only=False
-        ).where((Paste.expires_at <= now) & (Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW > now))
+        stmt = self.build_get_by_id_query(paste_id=paste_id, access_types=access_types, for_update=for_update).where(
+            (Paste.expires_at <= now) & (Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW > now)
+        )
 
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -95,6 +83,19 @@ class PastesRepository:
     async def delete(self, paste: Paste) -> None:
         await self.db.delete(paste)
         await self.db.flush()
+
+    async def delete_expired_anonymous(self) -> int:
+        now = datetime.now(UTC)
+        result = await self.db.execute(sa.delete(Paste).where((Paste.expires_at < now) & (Paste.owner_id.is_(None))))
+        return result.rowcount
+
+    async def delete_unmanageable(self) -> int:
+        now = datetime.now(UTC)
+        stmt = sa.delete(Paste).where(
+            (Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW < now) & (Paste.owner_id.is_not(None))
+        )
+        result = await self.db.execute(stmt)
+        return result.rowcount
 
     async def save_paste(self, paste: Paste) -> Paste:
         self.db.add(paste)
