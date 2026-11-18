@@ -21,7 +21,7 @@ class PastesRepository:
         *,
         for_update: bool = False,
         active_only: bool = True,
-    ) -> sa.Select[tuple[Paste]]:
+    ) -> sa.Select[Paste]:
         stmt = sa.select(Paste).where(Paste.id == paste_id).options(joinedload(Paste.owner))
 
         if access_types is not None:
