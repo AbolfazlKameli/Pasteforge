@@ -1,9 +1,9 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
+from fastapi import Depends
 from jose import JWTError, jwt
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import InvalidTokenError
@@ -12,8 +12,8 @@ from pasteforge.repositories import TokenPairRepository
 
 
 class TokenPairService:
-    def __init__(self, db: AsyncSession) -> None:
-        self.token_repo = TokenPairRepository(db)
+    def __init__(self, token_repo: Annotated[TokenPairRepository, Depends(TokenPairRepository)]) -> None:
+        self.token_repo = token_repo
 
     async def blacklist_by_sid(self, sid: uuid.UUID) -> None:
         await self.token_repo.blacklist_by_sid(sid)
