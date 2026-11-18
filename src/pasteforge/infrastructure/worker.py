@@ -25,4 +25,8 @@ celery_app.conf.beat_schedule = {
         "task": "pasteforge.tasks.pastes.delete_expired_pastes",
         "schedule": crontab(minute="*/1"),
     },
+    "cleanup-expired-idempotency-records": {
+        "task": "pasteforge.tasks.idempotency.delete_expired_records",
+        "schedule": crontab(minute="0", hour="*/1"),
+    },
 }
