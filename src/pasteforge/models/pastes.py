@@ -17,6 +17,11 @@ class PastesAccessTypes(Enum):
 class Paste(Base):
     __tablename__ = "pastes"
 
+    __table_args__ = (
+        sa.Index("ix_pastes_expires_at_anonymous", "expires_at", postgresql_where=sa.text("owner_id IS NULL")),
+        sa.Index("ix_pastes_expires_at_authenticated", "expires_at", postgresql_where=sa.text("owner_id IS NOT NULL")),
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     syntax: Mapped[str | None] = mapped_column(sa.String(length=50), nullable=True)
