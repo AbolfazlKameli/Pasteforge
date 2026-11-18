@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 from math import ceil
+from typing import Annotated
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
+from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import TooManyRequestsError
 from pasteforge.services.otp import OtpService
@@ -11,10 +13,15 @@ from pasteforge.tasks import send_otp_code_email
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: db_dependency,
+        otp_service: Annotated[OtpService, Depends(OtpService)],
+        otp_blacklist_service: Annotated[OtpBlacklistService, Depends(OtpBlacklistService)],
+    ) -> None:
         self.db = db
-        self.otp_service = OtpService(db)
-        self.otp_blacklist_service = OtpBlacklistService(db)
+        self.otp_service = otp_service
+        self.otp_blacklist_service = otp_blacklist_service
 
     async def check_blacklist_for_user(self, email: str) -> None:
         blacklist = await self.otp_blacklist_service.get_active_by_email(email)

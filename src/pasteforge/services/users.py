@@ -1,7 +1,7 @@
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 from pasteforge.core.exceptions import AuthenticationError, UserAlreadyExistsError
 from pasteforge.core.security import hash_value, validate_value
@@ -10,8 +10,8 @@ from pasteforge.repositories import UserRepository
 
 
 class UserService:
-    def __init__(self, db: AsyncSession) -> None:
-        self.user_repo = UserRepository(db)
+    def __init__(self, user_repo: Annotated[UserRepository, Depends(UserRepository)]) -> None:
+        self.user_repo = user_repo
 
     async def get_user_by_email(self, email: str, *, for_update: bool = False) -> User | None:
         return await self.user_repo.get_by_email(email=email, for_update=for_update)
