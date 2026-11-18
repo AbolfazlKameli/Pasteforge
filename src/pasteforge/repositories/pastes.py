@@ -84,6 +84,19 @@ class PastesRepository:
         await self.db.delete(paste)
         await self.db.flush()
 
+    async def delete_expired_anonymous(self) -> int:
+        now = datetime.now(UTC)
+        result = await self.db.execute(sa.delete(Paste).where((Paste.expires_at < now) & (Paste.owner_id.is_(None))))
+        return result.rowcount
+
+    async def delete_unmanageable(self) -> int:
+        now = datetime.now(UTC)
+        stmt = sa.delete(Paste).where(
+            (Paste.expires_at + configs.PASTE_MANAGEMENT_TIME_WINDOW < now) & (Paste.owner_id.is_not(None))
+        )
+        result = await self.db.execute(stmt)
+        return result.rowcount
+
     async def save_paste(self, paste: Paste) -> Paste:
         self.db.add(paste)
         await self.db.flush()
