@@ -9,7 +9,7 @@ from pasteforge.core.loggers import setup_api_logging  # noqa
 app = FastAPI(
     title="PasteForge",
     summary="A lightweight Pastebin service focused on clean architecture, reliable data handling, and well-designed APIs.",  # noqa: E501
-    version="0.5.0",
+    version="0.5.1",
     contact={
         "name": "Abolfazl Kameli",
         "url": "https://github.com/abolfazlkameli",
