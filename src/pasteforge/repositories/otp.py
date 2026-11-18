@@ -2,14 +2,14 @@ from datetime import datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.models import Otp
 
 
 class OtpRepository:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: db_dependency) -> None:
         self.db = db
 
     async def get_by_email(self, email: str, *, for_update: bool = False) -> Otp | None:
