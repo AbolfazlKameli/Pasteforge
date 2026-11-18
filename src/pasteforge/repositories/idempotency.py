@@ -4,14 +4,14 @@ from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.models import IdempotencyRecord, IdempotencyStatus
 
 
 class IdempotencyRepository:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: db_dependency) -> None:
         self.db = db
 
     async def get_by_scope_and_key(self, *, scope_key: str, key: uuid.UUID):

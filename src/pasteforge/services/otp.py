@@ -1,7 +1,8 @@
 import secrets
 from datetime import UTC, datetime
+from typing import Annotated
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import ForbiddenError
@@ -11,8 +12,8 @@ from pasteforge.repositories import OtpRepository
 
 
 class OtpService:
-    def __init__(self, db: AsyncSession) -> None:
-        self.otp_repo = OtpRepository(db)
+    def __init__(self, otp_repo: Annotated[OtpRepository, Depends(OtpRepository)]) -> None:
+        self.otp_repo = otp_repo
 
     @staticmethod
     def generate_otp_code() -> str:
