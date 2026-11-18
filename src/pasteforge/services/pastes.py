@@ -1,9 +1,9 @@
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
-from redis_fastapi import CacheBackend
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+from redis_fastapi import AsyncRedisDep, CacheBackend
 
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import AuthenticationError, NotFoundError, ValidationError
@@ -13,11 +13,20 @@ from pasteforge.repositories import PastesRepository
 from pasteforge.schemas.pastes import PasteOut
 
 
+async def get_pastes_cache(redis: AsyncRedisDep) -> CacheBackend:
+    return CacheBackend(redis, eviction_group=configs.CACHE_GROUP_PASTES)
+
+
+PasteCacheDep = Annotated[CacheBackend, Depends(get_pastes_cache)]
+
+
 class PasteService:
     CACHE_KEY_PREFIX = "paste:"
 
-    def __init__(self, db: AsyncSession, cache: CacheBackend):
-        self.paste_repo = PastesRepository(db)
+    def __init__(
+        self, paste_repo: Annotated[PastesRepository, Depends(PastesRepository)], cache: PasteCacheDep
+    ) -> None:
+        self.paste_repo = paste_repo
         self.cache = cache
 
     @classmethod
@@ -72,7 +81,7 @@ class PasteService:
         if cached_paste is not None:
             paste_out = PasteOut.model_validate_json(cached_paste)
 
-            if paste_out.access_type == PastesAccessTypes.public.value and paste_out.expires_at > datetime.now(UTC):
+            if paste_out.access_type == PastesAccessTypes.public and paste_out.expires_at > datetime.now(UTC):
                 return paste_out
 
             await self.cache.delete(cache_key)

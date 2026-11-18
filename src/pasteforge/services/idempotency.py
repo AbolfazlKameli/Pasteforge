@@ -1,9 +1,9 @@
 import hashlib
 import json
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 from pasteforge.core.exceptions import IdempotencyConflictError, IdempotencyInProgressError
 from pasteforge.core.security import hash_ip
@@ -12,8 +12,8 @@ from pasteforge.repositories import IdempotencyRepository
 
 
 class IdempotencyService:
-    def __init__(self, db: AsyncSession):
-        self.idempotency_repo = IdempotencyRepository(db)
+    def __init__(self, idempotency_repo: Annotated[IdempotencyRepository, Depends(IdempotencyRepository)]) -> None:
+        self.idempotency_repo = idempotency_repo
 
     @staticmethod
     def build_scope_key(user_id: uuid.UUID | None, client_ip: str | None) -> str:
