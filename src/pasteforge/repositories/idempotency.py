@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
 
 from dependencies import db_dependency
@@ -16,7 +16,7 @@ class IdempotencyRepository:
 
     async def get_by_scope_and_key(self, *, scope_key: str, key: uuid.UUID):
         result = await self.db.execute(
-            select(IdempotencyRecord)
+            sa.select(IdempotencyRecord)
             .where((IdempotencyRecord.scope_key == scope_key) & (IdempotencyRecord.key == key))
             .with_for_update()
         )
@@ -53,7 +53,7 @@ class IdempotencyRepository:
 
     async def complete(self, *, record_id: UUID, response_status: int, response_body: str) -> None:
         statement = (
-            update(IdempotencyRecord)
+            sa.update(IdempotencyRecord)
             .where((IdempotencyRecord.id == record_id) & (IdempotencyRecord.status == IdempotencyStatus.processing))
             .values(status=IdempotencyStatus.completed, response_status=response_status, response_body=response_body)
         )
@@ -62,9 +62,14 @@ class IdempotencyRepository:
     async def delete_expired_by_key(self, *, scope_key: str, key: uuid.UUID):
         now = datetime.now(UTC)
         await self.db.execute(
-            delete(IdempotencyRecord).where(
+            sa.delete(IdempotencyRecord).where(
                 (IdempotencyRecord.scope_key == scope_key)
                 & (IdempotencyRecord.key == key)
                 & (IdempotencyRecord.expires_at <= now)
             )
         )
+
+    async def delete_expired(self) -> int:
+        now = datetime.now(UTC)
+        result = await self.db.execute(sa.delete(IdempotencyRecord).where(IdempotencyRecord.expires_at <= now))
+        return result.rowcount
