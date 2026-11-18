@@ -26,7 +26,6 @@ class Paste(Base):
         default=PastesAccessTypes.public,
         nullable=False,
     )
-    is_active: Mapped[bool] = mapped_column(sa.Boolean(), default=True, nullable=False)
     password: Mapped[str | None] = mapped_column(sa.String(), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -39,7 +38,7 @@ class Paste(Base):
     owner: Mapped["User | None"] = relationship(back_populates="pastes")  # noqa: F821
 
     def __repr__(self):
-        return f"Paste({self.id}, {self.is_active}, {self.created_at})"
+        return f"Paste({self.id}, {self.created_at})"
 
     def __str__(self):
-        return f"{self.id} - {self.is_active}"
+        return f"{self.id} - {self.created_at}"
