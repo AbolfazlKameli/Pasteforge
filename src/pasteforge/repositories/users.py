@@ -2,13 +2,13 @@ import uuid
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies import db_dependency
 from pasteforge.models import User
 
 
 class UserRepository:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: db_dependency) -> None:
         self.db = db
 
     async def exists_by_email(self, email: str) -> bool:

@@ -1,4 +1,6 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Annotated
+
+from fastapi import Depends
 
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import ForbiddenError
@@ -7,8 +9,8 @@ from pasteforge.repositories import AnonymousUsageRepository
 
 
 class AnonymousUsageService:
-    def __init__(self, db: AsyncSession) -> None:
-        self.usage_repo = AnonymousUsageRepository(db)
+    def __init__(self, usage_repo: Annotated[AnonymousUsageRepository, Depends(AnonymousUsageRepository)]) -> None:
+        self.usage_repo = usage_repo
 
     async def validate_paste_usage(self, ip: str) -> None:
         usage = await self.usage_repo.increment_paste_usage(hashed_ip=hash_ip(ip))

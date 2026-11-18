@@ -1,14 +1,15 @@
 from datetime import UTC, datetime
+from typing import Annotated
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 from pasteforge.models import OtpBlacklist
 from pasteforge.repositories import OtpBlacklistRepository
 
 
 class OtpBlacklistService:
-    def __init__(self, db: AsyncSession) -> None:
-        self.otp_blacklist_repo = OtpBlacklistRepository(db)
+    def __init__(self, otp_blacklist_repo: Annotated[OtpBlacklistRepository, Depends(OtpBlacklistRepository)]) -> None:
+        self.otp_blacklist_repo = otp_blacklist_repo
 
     async def get_active_by_email(self, email: str) -> OtpBlacklist | None:
         return await self.otp_blacklist_repo.get_active_by_email(email=email, current_time=datetime.now(UTC))

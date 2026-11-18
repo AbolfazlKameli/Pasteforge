@@ -1,13 +1,13 @@
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies import db_dependency
 from pasteforge.models import TokenObtainPair, TokenPairStatuses
 
 
 class TokenPairRepository:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: db_dependency) -> None:
         self.db = db
 
     async def get_by_sid(self, sid: uuid.UUID) -> TokenObtainPair | None:
