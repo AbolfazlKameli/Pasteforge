@@ -28,6 +28,10 @@ class PastesRepository:
 
         return stmt
 
+    @staticmethod
+    def build_get_by_owner_query(owner_id: uuid.UUID) -> sa.Select[Paste]:
+        return sa.select(Paste).where(Paste.owner_id == owner_id)
+
     async def get_unexpired_by_id(
         self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes] | None = None, *, for_update: bool = False
     ) -> Paste | None:
