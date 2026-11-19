@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
+import sqlalchemy as sa
 from fastapi import Depends
 from redis_fastapi import AsyncRedisDep, CacheBackend
 
@@ -10,7 +11,7 @@ from pasteforge.core.exceptions import AuthenticationError, NotFoundError, Valid
 from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import Paste, PastesAccessTypes
 from pasteforge.repositories import PastesRepository
-from pasteforge.schemas.pastes import PasteOut
+from pasteforge.schemas.pastes import PasteFilter, PasteOut
 
 
 async def get_pastes_cache(redis: AsyncRedisDep) -> CacheBackend:
@@ -46,6 +47,31 @@ class PasteService:
 
             if not validate_value(paste.password, password):
                 raise ValidationError("Incorrect password.")
+
+    def build_get_pastes_by_owner_query(self, user_id: uuid.UUID) -> sa.Select[Paste]:
+        return self.paste_repo.build_get_by_owner_query(user_id)
+
+    @staticmethod
+    def filter_query(stmt: sa.Select[Paste], filters: PasteFilter) -> sa.Select[Paste]:
+        if filters.access_type is not None:
+            stmt = stmt.where(Paste.access_type == filters.access_type)
+
+        if filters.syntax is not None:
+            stmt = stmt.where(Paste.syntax == filters.syntax)
+
+        if filters.created_after is not None:
+            stmt = stmt.where(Paste.created_at >= filters.created_after)
+
+        if filters.created_before is not None:
+            stmt = stmt.where(Paste.created_at <= filters.created_before)
+
+        if filters.expired:
+            stmt = stmt.where(Paste.expires_at < datetime.now(UTC))
+
+        if filters.search is not None:
+            stmt = stmt.where(Paste.content.ilike(f"%{filters.search}%"))
+
+        return stmt
 
     async def invalidate_paste_cache(self, paste_id: uuid.UUID) -> None:
         await self.cache.delete(self.get_cache_key(paste_id))
