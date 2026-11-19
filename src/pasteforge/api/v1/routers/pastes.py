@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from redis_fastapi import rate_limit
@@ -9,16 +10,19 @@ from pasteforge.api.dependencies import (
     idempotency_key_dep,
     idempotency_service_dep,
     optional_user_dep,
+    page_based_paginator,
     paste_service_dep,
 )
 from pasteforge.core.exceptions import too_many_requests_error
 from pasteforge.models import PastesAccessTypes
 from pasteforge.schemas.auth import auth_responses
-from pasteforge.schemas.common import DataSchema, ErrorResponse
+from pasteforge.schemas.common import DataSchema, ErrorResponse, PaginatedResponse
 from pasteforge.schemas.pastes import (
     PasteDeleteRequest,
     PasteExpiryRequest,
+    PasteFilter,
     PasteIn,
+    PasteList,
     PasteOut,
     PasteUpdateRequest,
     ProtectedPasteRequest,
@@ -29,6 +33,24 @@ router = APIRouter(prefix="/pastes", tags=["pastes"])
 
 def _get_password_hash_input(password) -> str | None:
     return password.get_secret_value() if password else None
+
+
+@router.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(rate_limit("10/minute", on_limit_exceeded=too_many_requests_error))],
+    response_model=DataSchema[PaginatedResponse[PasteList]],
+    responses={**auth_responses},
+)
+async def list_authenticated_pastes(
+    user: active_user_dep,
+    paste_service: paste_service_dep,
+    paginator: page_based_paginator,
+    filters: Annotated[PasteFilter, Depends()],
+):
+    paste_query = paste_service.build_get_pastes_by_owner_query(user.id)
+    filtered_pastes = paste_service.filter_query(paste_query, filters)
+    return {"data": await paginator.get_response(filtered_pastes)}
 
 
 @router.post(
