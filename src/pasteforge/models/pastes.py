@@ -24,17 +24,20 @@ class Paste(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    syntax: Mapped[str | None] = mapped_column(sa.String(length=50), nullable=True)
+    syntax: Mapped[str | None] = mapped_column(sa.String(length=50), nullable=True, index=True)
     size_bytes: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     access_type: Mapped[PastesAccessTypes] = mapped_column(
         sa.Enum(PastesAccessTypes, name="pastes_access_types_enum"),
         default=PastesAccessTypes.public,
         nullable=False,
+        index=True,
     )
     password: Mapped[str | None] = mapped_column(sa.String(), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), index=True
+    )
 
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"),
