@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Self
 
 from pydantic import UUID4, AwareDatetime, BaseModel, ConfigDict, Field, computed_field, model_validator
@@ -35,6 +36,27 @@ class PasteIn(PasteBase):
     @property
     def size_bytes(self) -> int:
         return get_content_size(self.content)
+
+
+class PasteList(BaseModel):
+    id: UUID4
+    size_bytes: int = Field(gt=0)
+    syntax: str
+    access_type: PastesAccessTypes
+    expires_at: datetime
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class PasteFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    access_type: PastesAccessTypes | None = None
+    syntax: str | None = None
+    expired: bool | None = None
+    created_after: datetime | None = None
+    created_before: datetime | None = None
+    search: str | None = None
 
 
 class PasteOut(PasteBase):
