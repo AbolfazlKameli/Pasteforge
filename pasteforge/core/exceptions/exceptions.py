@@ -55,3 +55,8 @@ class IdempotencyConflictError(AppException):
 class IdempotencyInProgressError(AppException):
     def __init__(self, message: str = "Idempotency in progress error."):
         super().__init__(status_code=status.HTTP_409_CONFLICT, message=message)
+
+
+class EmailDeliveryError(AppException):
+    def __int__(self, message: str = "Failed to send email."):
+        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, message=message)

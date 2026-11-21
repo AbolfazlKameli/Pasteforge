@@ -3,7 +3,7 @@ from email.message import EmailMessage
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 
 from pasteforge.core.config import configs
-from pasteforge.exceptions import EmailDeliveryError
+from pasteforge.core.exceptions import EmailDeliveryError
 
 
 class EmailHandler:

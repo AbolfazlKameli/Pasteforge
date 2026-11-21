@@ -1,5 +1,6 @@
 from pasteforge.core.exceptions.exceptions import (
     AuthenticationError,
+    EmailDeliveryError,
     ForbiddenError,
     IdempotencyConflictError,
     IdempotencyInProgressError,
@@ -13,6 +14,7 @@ from pasteforge.core.exceptions.handlers import register_exception_handlers, too
 
 __all__ = [
     "AuthenticationError",
+    "EmailDeliveryError",
     "ForbiddenError",
     "InvalidTokenError",
     "TooManyRequestsError",

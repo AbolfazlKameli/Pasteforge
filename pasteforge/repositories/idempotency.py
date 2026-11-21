@@ -5,8 +5,8 @@ from uuid import UUID
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
 
-from dependencies import db_dependency
 from pasteforge.core.config import configs
+from pasteforge.dependencies import db_dependency
 from pasteforge.models import IdempotencyRecord, IdempotencyStatus
 
 
