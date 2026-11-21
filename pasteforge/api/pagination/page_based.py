@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Query
 from sqlalchemy import Select, func, select
 
-from dependencies import db_dependency
+from pasteforge.dependencies import db_dependency
 
 
 class PageBasedPaginator:

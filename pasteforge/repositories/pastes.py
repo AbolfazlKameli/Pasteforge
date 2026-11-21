@@ -5,8 +5,8 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import joinedload
 
-from dependencies import db_dependency
 from pasteforge.core.config import configs
+from pasteforge.dependencies import db_dependency
 from pasteforge.models import Paste, PastesAccessTypes
 
 

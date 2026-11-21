@@ -4,9 +4,9 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from dependencies import db_dependency
 from pasteforge.core.config import configs
 from pasteforge.core.exceptions import TooManyRequestsError
+from pasteforge.dependencies import db_dependency
 from pasteforge.services.otp import OtpService
 from pasteforge.services.otp_blacklist import OtpBlacklistService
 from pasteforge.tasks import send_otp_code_email

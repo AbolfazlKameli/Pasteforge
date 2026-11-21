@@ -2,7 +2,7 @@ from datetime import datetime
 
 import sqlalchemy as sa
 
-from dependencies import db_dependency
+from pasteforge.dependencies import db_dependency
 from pasteforge.models import OtpBlacklist
 
 

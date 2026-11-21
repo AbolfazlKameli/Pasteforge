@@ -1,4 +1,4 @@
-from pasteforge.exceptions import EmailDeliveryError
+from pasteforge.core.exceptions import EmailDeliveryError
 from pasteforge.infrastructure.email import EmailHandler
 from pasteforge.infrastructure.worker import celery_app
 

@@ -3,8 +3,8 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from dependencies import db_dependency
 from pasteforge.core.config import configs
+from pasteforge.dependencies import db_dependency
 from pasteforge.models import Otp
 
 
