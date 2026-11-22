@@ -9,10 +9,6 @@ class DataSchema[DataT](BaseModel):
     data: DataT
 
 
-class HealthCheckResponse(BaseModel):
-    status: str
-
-
 class PaginatedResponse[DataT](BaseModel):
     count: int = Field(description="Number of total items")
     previous_page: int | None = Field(None, description="Previous page if it exists", ge=1)
@@ -23,6 +19,10 @@ class PaginatedResponse[DataT](BaseModel):
 
 class ErrorResponse(BaseModel):
     error: str
+
+
+class DetailedErrorResponse[DataT](BaseModel):
+    errors: DataT
 
 
 class SuccessResponse(BaseModel):

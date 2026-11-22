@@ -4,8 +4,13 @@ from redis_fastapi import RateLimitResult
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
-from pasteforge.core.exceptions import AuthenticationError
-from pasteforge.core.exceptions.exceptions import AppException, InvalidTokenError, TooManyRequestsError
+from pasteforge.core.exceptions import (
+    AppException,
+    AuthenticationError,
+    InvalidTokenError,
+    ServiceUnavailableError,
+    TooManyRequestsError,
+)
 
 
 async def too_many_requests_error(request: Request, result: RateLimitResult):
@@ -54,3 +59,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         errors = [{"loc": error["loc"], "msg": error["msg"]} for error in exc.errors()]
         return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"data": {"errors": errors}})
+
+    @app.exception_handler(ServiceUnavailableError)
+    async def service_unavailable_handler(request: Request, exc: ServiceUnavailableError):
+        checks = exc.checks if exc.checks is not None else {}
+        return JSONResponse(status_code=exc.status_code, content={"data": {"errors": checks}})
