@@ -1,0 +1,83 @@
+services:
+  pasteforge-db:
+    image: postgres:18
+    restart: unless-stopped
+    networks:
+      - pasteforge_network
+    env_file:
+      - env/.${ENV_STATE}.env
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 25s
+      timeout: 5s
+      retries: 5
+
+  pasteforge-redis:
+    image: redis:8.6.7
+    restart: unless-stopped
+    networks:
+      - pasteforge_network
+    env_file:
+      - env/.${ENV_STATE}.env
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  pasteforge-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pasteforge-api:${VERSION}
+    restart: unless-stopped
+    networks:
+      - pasteforge_network
+    env_file:
+      - env/.${ENV_STATE}.env
+    expose:
+      - 8000
+    depends_on:
+      pasteforge-db:
+        condition: service_healthy
+      pasteforge-redis:
+        condition: service_healthy
+
+  pasteforge-celery:
+    image: pasteforge-api:${VERSION}
+    entrypoint: celery -A pasteforge.infrastructure.worker worker -B -l INFO
+    restart: unless-stopped
+    networks:
+      - pasteforge_network
+    env_file:
+      - env/.${ENV_STATE}.env
+    depends_on:
+      pasteforge-redis:
+        condition: service_healthy
+      pasteforge-api:
+        condition: service_started
+
+  pasteforge-nginx:
+    image: nginx:trixie-perl
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/pasteforge.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - pasteforge_network
+    ports:
+      - "80:80"
+    depends_on:
+      - pasteforge-api
+
+networks:
+  pasteforge_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
