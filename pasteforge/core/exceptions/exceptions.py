@@ -10,6 +10,12 @@ class AppException(Exception):
         super().__init__(message)
 
 
+class ServiceUnavailableError(AppException):
+    def __init__(self, message: str = "Service unavailable", checks: dict | None = None):
+        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, message=message)
+        self.checks = checks
+
+
 class ValidationError(AppException):
     def __init__(self, message: str = "Validation Error"):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, message=message)
