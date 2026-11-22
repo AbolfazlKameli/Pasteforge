@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:${PYTHON_VERSION}-alpine AS runtime
 
-RUN apk add --no-cache libpq libmagic
+RUN apk add --no-cache libpq libmagic curl
 
 COPY --from=astral/uv:0.10.0 /uv /uvx /bin/
 

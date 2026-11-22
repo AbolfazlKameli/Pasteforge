@@ -72,7 +72,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - pasteforge-api
+      pasteforge-api:
+        condition: service_healthy
 
 networks:
   pasteforge_network:
