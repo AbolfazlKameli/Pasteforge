@@ -4,6 +4,7 @@ from pasteforge.api.dependencies.paginators import page_based_paginator
 from pasteforge.api.dependencies.services import (
     anon_usage_service_dep,
     auth_service_dep,
+    health_service_dep,
     idempotency_service_dep,
     otp_service_dep,
     paste_service_dep,
@@ -23,4 +24,5 @@ __all__ = [
     "idempotency_service_dep",
     "idempotency_key_dep",
     "page_based_paginator",
+    "health_service_dep",
 ]

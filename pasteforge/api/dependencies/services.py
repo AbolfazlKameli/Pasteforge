@@ -5,6 +5,7 @@ from fastapi import Depends
 from pasteforge.services import (
     AnonymousUsageService,
     AuthService,
+    HealthService,
     IdempotencyService,
     OtpService,
     PasteService,
@@ -19,3 +20,4 @@ otp_service_dep = Annotated[OtpService, Depends(OtpService)]
 anon_usage_service_dep = Annotated[AnonymousUsageService, Depends(AnonymousUsageService)]
 paste_service_dep = Annotated[PasteService, Depends(PasteService)]
 idempotency_service_dep = Annotated[IdempotencyService, Depends(IdempotencyService)]
+health_service_dep = Annotated[HealthService, Depends(HealthService)]

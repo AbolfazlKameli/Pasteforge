@@ -1,5 +1,6 @@
 from pasteforge.services.anon_usage import AnonymousUsageService
 from pasteforge.services.auth import AuthService
+from pasteforge.services.health import HealthService
 from pasteforge.services.idempotency import IdempotencyService
 from pasteforge.services.otp import OtpService
 from pasteforge.services.otp_blacklist import OtpBlacklistService
@@ -16,4 +17,5 @@ __all__ = [
     "AnonymousUsageService",
     "PasteService",
     "IdempotencyService",
+    "HealthService",
 ]
