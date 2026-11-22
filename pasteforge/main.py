@@ -3,13 +3,15 @@ from redis_fastapi import FastAPIRedis
 
 from pasteforge.api.middlewares import CSRFMiddleware
 from pasteforge.api.v1.router import router as api_v1_router
+from pasteforge.core.config import configs
 from pasteforge.core.exceptions import register_exception_handlers
 from pasteforge.core.loggers import setup_api_logging  # noqa
 
 app = FastAPI(
     title="PasteForge",
     summary="A lightweight Pastebin service focused on clean architecture, reliable data handling, and well-designed APIs.",  # noqa: E501
-    version="0.5.3",
+    version=configs.VERSION,
+    debug=configs.DEBUG,
     contact={
         "name": "Abolfazl Kameli",
         "url": "https://github.com/abolfazlkameli",

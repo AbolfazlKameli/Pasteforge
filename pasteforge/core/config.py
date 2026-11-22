@@ -28,10 +28,9 @@ class OTPSettings(BaseModel):
 class GlobalConfig(BaseConfig):
     TIMEZONE: str
     SECRET_KEY: str
+    VERSION: str
 
     IDEMPOTENCY_KEY_RETENTION: timedelta = timedelta(hours=24)
-
-    UNUSABLE_PASSWORD_MARKER: str = "!UNUSABLE"
 
     OTP_SETTINGS: OTPSettings = OTPSettings()
 
@@ -72,18 +71,17 @@ class GlobalConfig(BaseConfig):
 
 class DevConfig(GlobalConfig):
     DEBUG: bool = True
-    model_config = SettingsConfigDict(env_file="env/.dev.env", env_prefix="DEV_")
+    model_config = SettingsConfigDict(env_file="env/.dev.env")
 
 
 class TestConfig(GlobalConfig):
     DEBUG: bool = True
-
-    model_config = SettingsConfigDict(env_file="env/.test.env", env_prefix="TEST_")
+    model_config = SettingsConfigDict(env_file="env/.test.env")
 
 
 class ProdConfig(GlobalConfig):
     DEBUG: bool = False
-    model_config = SettingsConfigDict(env_file="env/.prod.env", env_prefix="PROD_")
+    model_config = SettingsConfigDict(env_file="env/.prod.env")
 
 
 @lru_cache
