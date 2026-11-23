@@ -41,6 +41,12 @@ services:
       - env/.${ENV_STATE}.env
     expose:
       - 8000
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8000/api/v1/health/ready" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       pasteforge-db:
         condition: service_healthy
