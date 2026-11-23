@@ -1,6 +1,6 @@
 [project]
 name = "pasteforge"
-version = "0.5.3"
+version = "0.6.0"
 description = "A lightweight paste-sharing service built with FastAPI"
 authors = [
     { name = "Abolfazl Kameli", email = "abolfazlkameli0@gmail.com" }
