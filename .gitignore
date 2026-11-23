@@ -135,6 +135,9 @@ cover/
 *.mo
 *.pot
 
+# Logs
+logs/
+
 # Django stuff:
 *.log
 local_settings.py
