@@ -4,9 +4,7 @@ from typing import Annotated, Any
 
 import sqlalchemy as sa
 from fastapi import Depends
-from redis_fastapi import AsyncRedisDep, CacheBackend
 
-from pasteforge.core.config import configs
 from pasteforge.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from pasteforge.core.security import hash_value, validate_value
 from pasteforge.models import Paste, PastesAccessTypes
@@ -14,25 +12,9 @@ from pasteforge.repositories import PastesRepository
 from pasteforge.schemas.pastes import PasteFilter, PasteOut
 
 
-async def get_pastes_cache(redis: AsyncRedisDep) -> CacheBackend:
-    return CacheBackend(redis, eviction_group=configs.CACHE_GROUP_PASTES)
-
-
-PasteCacheDep = Annotated[CacheBackend, Depends(get_pastes_cache)]
-
-
 class PasteService:
-    CACHE_KEY_PREFIX = "paste:"
-
-    def __init__(
-        self, paste_repo: Annotated[PastesRepository, Depends(PastesRepository)], cache: PasteCacheDep
-    ) -> None:
+    def __init__(self, paste_repo: Annotated[PastesRepository, Depends(PastesRepository)]) -> None:
         self.paste_repo = paste_repo
-        self.cache = cache
-
-    @classmethod
-    def get_cache_key(cls, paste_id: uuid.UUID) -> str:
-        return f"{cls.CACHE_KEY_PREFIX}{paste_id}"
 
     @staticmethod
     def check_ownership(paste: Paste, user_id: uuid.UUID) -> None:
@@ -73,9 +55,6 @@ class PasteService:
 
         return stmt
 
-    async def invalidate_paste_cache(self, paste_id: uuid.UUID) -> None:
-        await self.cache.delete(self.get_cache_key(paste_id))
-
     async def get_unexpired_paste_by_id(
         self, paste_id: uuid.UUID, access_types: list[PastesAccessTypes], *, for_update: bool = False
     ) -> Paste:
@@ -101,16 +80,8 @@ class PasteService:
         return paste
 
     async def get_authorized_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID | None) -> PasteOut | None:
-        cache_key = self.get_cache_key(paste_id)
-        cached_paste = await self.cache.get(cache_key)
-
-        if cached_paste is not None:
-            paste_out = PasteOut.model_validate_json(cached_paste)
-
-            if paste_out.access_type == PastesAccessTypes.public and paste_out.expires_at > datetime.now(UTC):
-                return paste_out
-
-            await self.cache.delete(cache_key)
+        if (paste := await self.paste_repo.get_paste_from_cache(paste_id)) is not None:
+            return paste
 
         paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.public, PastesAccessTypes.private])
 
@@ -120,12 +91,9 @@ class PasteService:
 
             self.check_ownership(paste, user_id)
 
-        paste_out = PasteOut.model_validate(paste)
+        await self.paste_repo.set_paste_cache(paste)
 
-        if paste.access_type == PastesAccessTypes.public:
-            await self.cache.set(cache_key, paste_out.model_dump_json(), ttl=configs.PUBLIC_PASTE_CACHE_MAX_AGE)
-
-        return paste_out
+        return PasteOut.model_validate(paste)
 
     async def get_protected_paste_by_id(self, paste_id: uuid.UUID, password: str):
         paste = await self.get_unexpired_paste_by_id(paste_id, [PastesAccessTypes.password_protected])
@@ -200,8 +168,6 @@ class PasteService:
 
         updated_paste = await self.paste_repo.update(paste, **update_data)
 
-        await self.invalidate_paste_cache(paste_id)
-
         return updated_paste
 
     async def update_manageable_paste_expiration(
@@ -214,8 +180,6 @@ class PasteService:
 
         updated_paste = await self.paste_repo.update(paste, expires_at=expires_at)
 
-        await self.invalidate_paste_cache(paste_id)
-
         return updated_paste
 
     async def delete_paste_by_id(self, paste_id: uuid.UUID, user_id: uuid.UUID, password: str | None) -> None:
@@ -226,4 +190,3 @@ class PasteService:
         self.validate_paste_password(paste, password)
 
         await self.paste_repo.delete(paste)
-        await self.invalidate_paste_cache(paste_id)
