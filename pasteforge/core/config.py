@@ -66,6 +66,8 @@ class GlobalConfig(BaseConfig):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
 
+    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+
     DEBUG: bool = False
 
 

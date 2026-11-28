@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from redis_fastapi import FastAPIRedis
 
 from pasteforge.api.middlewares import CSRFMiddleware
@@ -25,5 +26,12 @@ FastAPIRedis(app).lifespan().rate_limiting().caching()
 app.include_router(api_v1_router)
 
 app.add_middleware(CSRFMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=configs.CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 register_exception_handlers(app)
